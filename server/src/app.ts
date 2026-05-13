@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { errorHandler } from './middlewares/errorHandler';
+import authRoutes from './modules/auth/auth.routes';
 import healthRoutes from './routes/health.routes';
 
 export function createApp() {
@@ -12,6 +13,7 @@ export function createApp() {
   app.use(express.json({ limit: '100kb' }));
 
   app.use('/api/health', healthRoutes);
+  app.use('/api/auth', authRoutes);
 
   app.use((_req, res) => {
     res.status(404).json({
