@@ -1,0 +1,8 @@
+{
+  "name": "@rr-digital/mobile",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"Mobile app not initialized yet\"",
+    "lint": "echo \"Mobile lint not configured yet\""
+  }
+}

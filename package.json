@@ -1,0 +1,14 @@
+{
+  "name": "rr-digital-app",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "server"
+  ],
+  "scripts": {
+    "dev:mobile": "npm run dev -w mobile",
+    "dev:server": "npm run dev -w server",
+    "build:server": "npm run build -w server",
+    "lint": "npm run lint -w mobile && npm run lint -w server"
+  }
+}

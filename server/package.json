@@ -1,0 +1,9 @@
+{
+  "name": "@rr-digital/server",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"Server not initialized yet\"",
+    "build": "echo \"Server build not configured yet\"",
+    "lint": "echo \"Server lint not configured yet\""
+  }
+}
