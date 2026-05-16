@@ -1,11 +1,152 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { AppCard } from '../../src/components/AppCard';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useAuth } from '../../src/auth/AuthContext';
+import type { CompanyAccess, MeResponse } from '../../src/auth/authTypes';
+import { fetchProjects } from '../../src/companies/companiesApi';
+import type { Project } from '../../src/companies/companiesTypes';
 import { AppScreen } from '../../src/components/AppScreen';
 import { colors } from '../../src/theme/colors';
-import { spacing } from '../../src/theme/spacing';
+import { radius, spacing } from '../../src/theme/spacing';
 import { typography } from '../../src/theme/typography';
 
+// --- Label helpers -------------------------------------------------------
+
+function labelForType(type: string): string {
+  switch (type) {
+    case 'website':
+      return 'Site web';
+    case 'ecommerce':
+      return 'E-commerce';
+    case 'mobile_app':
+      return 'Application mobile';
+    case 'dashboard':
+      return 'Dashboard';
+    case 'automation':
+      return 'Automatisation';
+    case 'ai':
+      return 'Intelligence artificielle';
+    case 'custom':
+      return 'Personnalisé';
+    default:
+      return type;
+  }
+}
+
+function labelForStatus(status: string): string {
+  switch (status) {
+    case 'active':
+      return 'Actif';
+    case 'maintenance':
+      return 'Maintenance';
+    case 'draft':
+      return 'Brouillon';
+    case 'archived':
+      return 'Archivé';
+    default:
+      return status;
+  }
+}
+
+function colorForStatus(status: string): string {
+  switch (status) {
+    case 'active':
+      return colors.primary;
+    case 'maintenance':
+      return '#B97A2A';
+    case 'draft':
+      return colors.textMuted;
+    case 'archived':
+      return colors.border;
+    default:
+      return colors.textMuted;
+  }
+}
+
+// --- Screen state --------------------------------------------------------
+
+type ScreenState =
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | { kind: 'no_company' }
+  | { kind: 'ready'; company: CompanyAccess; projects: Project[] };
+
+// --- Sub-components ------------------------------------------------------
+
+function ProjectCard({ project }: { project: Project }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardName}>{project.name}</Text>
+
+      <View style={styles.cardMeta}>
+        <Text style={styles.cardType}>{labelForType(project.type)}</Text>
+        <Text style={styles.cardDot}> · </Text>
+        <Text
+          style={[styles.cardStatus, { color: colorForStatus(project.status) }]}
+        >
+          {labelForStatus(project.status)}
+        </Text>
+      </View>
+
+      {project.description ? (
+        <Text style={styles.cardDescription} numberOfLines={2}>
+          {project.description}
+        </Text>
+      ) : null}
+
+      {project.url ? (
+        <Text style={styles.cardUrl} numberOfLines={1}>
+          {project.url}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+// --- Screen --------------------------------------------------------------
+
 export default function ProjectsScreen() {
+  const { authenticatedRequest } = useAuth();
+  const [state, setState] = useState<ScreenState>({ kind: 'loading' });
+
+  const load = useCallback(async () => {
+    setState({ kind: 'loading' });
+    try {
+      // Step 1: fetch user + companies list from /auth/me.
+      // This is the authoritative source for which companies the user can access.
+      const me = await authenticatedRequest<MeResponse>('/auth/me');
+
+      // Step 2: pick the first active company.
+      // In a future step a company selector will let the user switch between companies.
+      // For now, the first active one is the default.
+      const activeCompany =
+        me.companies.find((c) => c.status === 'active') ?? null;
+
+      if (!activeCompany) {
+        setState({ kind: 'no_company' });
+        return;
+      }
+
+      // Step 3: load projects for that company.
+      const data = await fetchProjects(activeCompany.id, authenticatedRequest);
+
+      setState({ kind: 'ready', company: activeCompany, projects: data.projects });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Une erreur est survenue.';
+      setState({ kind: 'error', message });
+    }
+  }, [authenticatedRequest]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   return (
     <AppScreen>
       <View style={styles.header}>
@@ -13,18 +154,66 @@ export default function ProjectsScreen() {
         <Text style={styles.title}>Vos projets</Text>
       </View>
 
-      <View style={styles.section}>
-        <AppCard>
-          <Text style={styles.cardTitle}>Bientôt disponible</Text>
-          <Text style={styles.cardBody}>
-            La liste de vos projets s'affichera ici dès qu'ils seront associés
-            à votre compte.
+      {state.kind === 'loading' && (
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      )}
+
+      {state.kind === 'error' && (
+        <View style={styles.section}>
+          <View style={styles.errorBox}>
+            <Text style={styles.errorTitle}>Impossible de charger les projets</Text>
+            <Text style={styles.errorMessage}>{state.message}</Text>
+          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed && styles.retryButtonPressed,
+            ]}
+            onPress={load}
+          >
+            <Text style={styles.retryLabel}>Réessayer</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {state.kind === 'no_company' && (
+        <View style={styles.section}>
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>
+              Aucune entreprise active associée à votre compte.
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {state.kind === 'ready' && (
+        <View style={styles.section}>
+          <Text style={styles.companyLabel}>
+            {state.company.name.toUpperCase()}
           </Text>
-        </AppCard>
-      </View>
+
+          {state.projects.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>
+                Aucun projet pour le moment.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.list}>
+              {state.projects.map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+            </View>
+          )}
+        </View>
+      )}
     </AppScreen>
   );
 }
+
+// --- Styles --------------------------------------------------------------
 
 const styles = StyleSheet.create({
   header: {
@@ -40,16 +229,107 @@ const styles = StyleSheet.create({
     ...typography.display,
     color: colors.primary,
   },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: spacing.xxxl,
+  },
   section: {
     gap: spacing.md,
   },
-  cardTitle: {
-    ...typography.title,
-    color: colors.primary,
-    marginBottom: spacing.sm,
+  companyLabel: {
+    ...typography.small,
+    color: colors.textMuted,
+    letterSpacing: 1.2,
+    marginBottom: spacing.xs,
   },
-  cardBody: {
+  list: {
+    gap: spacing.md,
+  },
+  // Project card
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    gap: spacing.xs,
+  },
+  cardName: {
+    ...typography.sectionTitle,
+    color: colors.textPrimary,
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardType: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  cardDot: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  cardStatus: {
+    ...typography.small,
+    fontWeight: '500',
+  },
+  cardDescription: {
     ...typography.body,
     color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  cardUrl: {
+    ...typography.small,
+    color: colors.accent,
+    marginTop: spacing.xs,
+  },
+  // Error state
+  errorBox: {
+    backgroundColor: '#FBEEEC',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E6BFB7',
+    borderRadius: radius.md,
+    padding: spacing.xl,
+    gap: spacing.xs,
+  },
+  errorTitle: {
+    ...typography.sectionTitle,
+    color: '#8A2A1B',
+  },
+  errorMessage: {
+    ...typography.small,
+    color: '#8A2A1B',
+  },
+  retryButton: {
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  retryButtonPressed: {
+    backgroundColor: colors.surfaceSoft,
+  },
+  retryLabel: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  // Empty state
+  emptyBox: {
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: radius.md,
+    padding: spacing.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
 });
