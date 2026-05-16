@@ -3,7 +3,13 @@
 // the Bearer token and 401-retry logic are handled centrally.
 // Never call apiRequest directly here — these routes require auth.
 
-import type { EventsResponse, ProjectsResponse } from './companiesTypes';
+import type {
+  CreateSupportRequestInput,
+  CreateSupportRequestResponse,
+  EventsResponse,
+  ProjectsResponse,
+  SupportRequestsResponse,
+} from './companiesTypes';
 
 // Type alias matching the authenticatedRequest signature in AuthContext.
 type AuthenticatedRequest = <T>(path: string, options?: RequestInit) => Promise<T>;
@@ -22,5 +28,32 @@ export async function fetchEvents(
 ): Promise<EventsResponse> {
   return authenticatedRequest<EventsResponse>(
     `/companies/${companyId}/events?limit=${limit}`,
+  );
+}
+
+export async function fetchSupportRequests(
+  companyId: string,
+  authenticatedRequest: AuthenticatedRequest,
+  limit = 20,
+): Promise<SupportRequestsResponse> {
+  return authenticatedRequest<SupportRequestsResponse>(
+    `/companies/${companyId}/support-requests?limit=${limit}`,
+  );
+}
+
+// company_id comes from the URL param — never from the body.
+// created_by_user_id and status are set server-side from the JWT.
+export async function createSupportRequest(
+  companyId: string,
+  authenticatedRequest: AuthenticatedRequest,
+  input: CreateSupportRequestInput,
+): Promise<CreateSupportRequestResponse> {
+  return authenticatedRequest<CreateSupportRequestResponse>(
+    `/companies/${companyId}/support-requests`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
   );
 }
