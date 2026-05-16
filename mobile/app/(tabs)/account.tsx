@@ -11,6 +11,7 @@ import { useAuth } from '../../src/auth/AuthContext';
 import { AppCard } from '../../src/components/AppCard';
 import { AppScreen } from '../../src/components/AppScreen';
 import { apiRequest, ApiError } from '../../src/lib/apiClient';
+import type { MeResponse } from '../../src/auth/authTypes';
 import { colors } from '../../src/theme/colors';
 import { radius, spacing } from '../../src/theme/spacing';
 import { typography } from '../../src/theme/typography';
@@ -19,6 +20,12 @@ type HealthResult =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'ok'; service: string; timestamp: string }
+  | { kind: 'error'; message: string };
+
+type SessionResult =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'ok'; fullName: string; email: string; role: string }
   | { kind: 'error'; message: string };
 
 interface HealthPayload {
@@ -40,8 +47,11 @@ function labelForRole(role: string): string {
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, authenticatedRequest } = useAuth();
   const [healthResult, setHealthResult] = useState<HealthResult>({
+    kind: 'idle',
+  });
+  const [sessionResult, setSessionResult] = useState<SessionResult>({
     kind: 'idle',
   });
   const [loggingOut, setLoggingOut] = useState(false);
@@ -63,6 +73,27 @@ export default function AccountScreen() {
             ? err.message
             : 'Unknown error';
       setHealthResult({ kind: 'error', message });
+    }
+  };
+
+  const handleTestSession = async () => {
+    setSessionResult({ kind: 'loading' });
+    try {
+      const data = await authenticatedRequest<MeResponse>('/auth/me');
+      setSessionResult({
+        kind: 'ok',
+        fullName: data.user.fullName,
+        email: data.user.email,
+        role: data.user.globalRole,
+      });
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? `${err.status} — ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : 'Erreur inconnue';
+      setSessionResult({ kind: 'error', message });
     }
   };
 
@@ -93,6 +124,49 @@ export default function AccountScreen() {
           </AppCard>
         </View>
       ) : null}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Session</Text>
+        <AppCard>
+          <Text style={styles.cardBody}>
+            Vérifier que la session est active et que le token est valide.
+          </Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.smallButton,
+              pressed && styles.smallButtonPressed,
+              sessionResult.kind === 'loading' && styles.buttonDisabled,
+            ]}
+            onPress={handleTestSession}
+            disabled={sessionResult.kind === 'loading'}
+          >
+            {sessionResult.kind === 'loading' ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.smallButtonLabel}>Tester la session</Text>
+            )}
+          </Pressable>
+
+          {sessionResult.kind === 'ok' && (
+            <View style={styles.statusOk}>
+              <Text style={styles.statusOkTitle}>Session valide</Text>
+              <Text style={styles.statusBody}>{sessionResult.fullName}</Text>
+              <Text style={styles.statusBody}>{sessionResult.email}</Text>
+              <Text style={styles.statusBody}>
+                {labelForRole(sessionResult.role)}
+              </Text>
+            </View>
+          )}
+
+          {sessionResult.kind === 'error' && (
+            <View style={styles.statusError}>
+              <Text style={styles.statusErrorTitle}>Session invalide</Text>
+              <Text style={styles.statusBody}>{sessionResult.message}</Text>
+            </View>
+          )}
+        </AppCard>
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Diagnostic</Text>

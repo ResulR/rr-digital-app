@@ -1,4 +1,4 @@
-// Mirrors the backend's PublicUser + LoginResult shapes.
+// Mirrors the backend's types.
 // Backend source of truth: server/src/modules/auth/auth.types.ts
 
 export interface PublicUser {
@@ -15,8 +15,29 @@ export interface LoginResponse {
   expiresIn: string;
 }
 
+// POST /auth/refresh response — does NOT include user (tokens only).
+// The user object is preserved from the stored session.
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+}
+
 export interface AuthSession {
   user: PublicUser;
   accessToken: string;
   refreshToken: string;
+}
+
+export interface CompanyAccess {
+  id: string;
+  name: string;
+  status: string;
+  role: string;
+}
+
+// GET /auth/me response
+export interface MeResponse {
+  user: PublicUser;
+  companies: CompanyAccess[];
 }
