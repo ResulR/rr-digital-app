@@ -7,7 +7,8 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../../src/auth/AuthContext';
-import type { CompanyAccess, MeResponse } from '../../src/auth/authTypes';
+import type { CompanyAccess } from '../../src/auth/authTypes';
+import { useCompany } from '../../src/companies/CompanyContext';
 import { fetchProjects } from '../../src/companies/companiesApi';
 import type { Project } from '../../src/companies/companiesTypes';
 import { AppScreen } from '../../src/components/AppScreen';
@@ -112,36 +113,21 @@ function ProjectCard({ project }: { project: Project }) {
 
 export default function ProjectsScreen() {
   const { authenticatedRequest } = useAuth();
+  const { selectedCompany, isLoadingCompanies, companyError, refreshCompanies } = useCompany();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
 
   const load = useCallback(async () => {
+    if (!selectedCompany) return;
     setState({ kind: 'loading' });
     try {
-      // Step 1: fetch user + companies list from /auth/me.
-      // This is the authoritative source for which companies the user can access.
-      const me = await authenticatedRequest<MeResponse>('/auth/me');
-
-      // Step 2: pick the first active company.
-      // In a future step a company selector will let the user switch between companies.
-      // For now, the first active one is the default.
-      const activeCompany =
-        me.companies.find((c) => c.status === 'active') ?? null;
-
-      if (!activeCompany) {
-        setState({ kind: 'no_company' });
-        return;
-      }
-
-      // Step 3: load projects for that company.
-      const data = await fetchProjects(activeCompany.id, authenticatedRequest);
-
-      setState({ kind: 'ready', company: activeCompany, projects: data.projects });
+      const data = await fetchProjects(selectedCompany.id, authenticatedRequest);
+      setState({ kind: 'ready', company: selectedCompany, projects: data.projects });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Une erreur est survenue.';
       setState({ kind: 'error', message });
     }
-  }, [authenticatedRequest]);
+  }, [selectedCompany, authenticatedRequest]);
 
   useEffect(() => {
     load();
@@ -154,31 +140,33 @@ export default function ProjectsScreen() {
         <Text style={styles.title}>Vos projets</Text>
       </View>
 
-      {state.kind === 'loading' && (
+      {isLoadingCompanies && (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} />
         </View>
       )}
 
-      {state.kind === 'error' && (
+      {companyError && (
         <View style={styles.section}>
           <View style={styles.errorBox}>
-            <Text style={styles.errorTitle}>Impossible de charger les projets</Text>
-            <Text style={styles.errorMessage}>{state.message}</Text>
+            <Text style={styles.errorTitle}>
+              Impossible de charger les entreprises
+            </Text>
+            <Text style={styles.errorMessage}>{companyError}</Text>
           </View>
           <Pressable
             style={({ pressed }) => [
               styles.retryButton,
               pressed && styles.retryButtonPressed,
             ]}
-            onPress={load}
+            onPress={refreshCompanies}
           >
             <Text style={styles.retryLabel}>Réessayer</Text>
           </Pressable>
         </View>
       )}
 
-      {state.kind === 'no_company' && (
+      {!isLoadingCompanies && !companyError && !selectedCompany && (
         <View style={styles.section}>
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
@@ -188,26 +176,54 @@ export default function ProjectsScreen() {
         </View>
       )}
 
-      {state.kind === 'ready' && (
-        <View style={styles.section}>
-          <Text style={styles.companyLabel}>
-            {state.company.name.toUpperCase()}
-          </Text>
-
-          {state.projects.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>
-                Aucun projet pour le moment.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.list}>
-              {state.projects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
+      {!isLoadingCompanies && !companyError && selectedCompany && (
+        <>
+          {state.kind === 'loading' && (
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.primary} />
             </View>
           )}
-        </View>
+
+          {state.kind === 'error' && (
+            <View style={styles.section}>
+              <View style={styles.errorBox}>
+                <Text style={styles.errorTitle}>Impossible de charger les projets</Text>
+                <Text style={styles.errorMessage}>{state.message}</Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.retryButtonPressed,
+                ]}
+                onPress={load}
+              >
+                <Text style={styles.retryLabel}>Réessayer</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {state.kind === 'ready' && (
+            <View style={styles.section}>
+              <Text style={styles.companyLabel}>
+                {state.company.name.toUpperCase()}
+              </Text>
+
+              {state.projects.length === 0 ? (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyText}>
+                    Aucun projet pour le moment.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.list}>
+                  {state.projects.map((project) => (
+                    <ProjectCard key={project.id} project={project} />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </>
       )}
     </AppScreen>
   );

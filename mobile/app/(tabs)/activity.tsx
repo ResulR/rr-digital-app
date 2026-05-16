@@ -7,7 +7,8 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../../src/auth/AuthContext';
-import type { CompanyAccess, MeResponse } from '../../src/auth/authTypes';
+import type { CompanyAccess } from '../../src/auth/authTypes';
+import { useCompany } from '../../src/companies/CompanyContext';
 import { fetchEvents } from '../../src/companies/companiesApi';
 import type { CompanyEvent } from '../../src/companies/companiesTypes';
 import { AppScreen } from '../../src/components/AppScreen';
@@ -119,33 +120,21 @@ function EventCard({ event }: { event: CompanyEvent }) {
 
 export default function ActivityScreen() {
   const { authenticatedRequest } = useAuth();
+  const { selectedCompany, isLoadingCompanies, companyError, refreshCompanies } = useCompany();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
 
   const load = useCallback(async () => {
+    if (!selectedCompany) return;
     setState({ kind: 'loading' });
     try {
-      // Step 1: get companies via /auth/me.
-      const me = await authenticatedRequest<MeResponse>('/auth/me');
-
-      // Step 2: pick first active company (same logic as projects screen).
-      const activeCompany =
-        me.companies.find((c) => c.status === 'active') ?? null;
-
-      if (!activeCompany) {
-        setState({ kind: 'no_company' });
-        return;
-      }
-
-      // Step 3: load last 20 events for that company.
-      const data = await fetchEvents(activeCompany.id, authenticatedRequest, 20);
-
-      setState({ kind: 'ready', company: activeCompany, events: data.events });
+      const data = await fetchEvents(selectedCompany.id, authenticatedRequest, 20);
+      setState({ kind: 'ready', company: selectedCompany, events: data.events });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Une erreur est survenue.';
       setState({ kind: 'error', message });
     }
-  }, [authenticatedRequest]);
+  }, [selectedCompany, authenticatedRequest]);
 
   useEffect(() => {
     load();
@@ -158,33 +147,33 @@ export default function ActivityScreen() {
         <Text style={styles.title}>Fil d&apos;activité</Text>
       </View>
 
-      {state.kind === 'loading' && (
+      {isLoadingCompanies && (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} />
         </View>
       )}
 
-      {state.kind === 'error' && (
+      {companyError && (
         <View style={styles.section}>
           <View style={styles.errorBox}>
             <Text style={styles.errorTitle}>
-              Impossible de charger l&apos;activité
+              Impossible de charger les entreprises
             </Text>
-            <Text style={styles.errorMessage}>{state.message}</Text>
+            <Text style={styles.errorMessage}>{companyError}</Text>
           </View>
           <Pressable
             style={({ pressed }) => [
               styles.retryButton,
               pressed && styles.retryButtonPressed,
             ]}
-            onPress={load}
+            onPress={refreshCompanies}
           >
             <Text style={styles.retryLabel}>Réessayer</Text>
           </Pressable>
         </View>
       )}
 
-      {state.kind === 'no_company' && (
+      {!isLoadingCompanies && !companyError && !selectedCompany && (
         <View style={styles.section}>
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
@@ -194,26 +183,56 @@ export default function ActivityScreen() {
         </View>
       )}
 
-      {state.kind === 'ready' && (
-        <View style={styles.section}>
-          <Text style={styles.companyLabel}>
-            {state.company.name.toUpperCase()}
-          </Text>
-
-          {state.events.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>
-                Aucune activité pour le moment.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.list}>
-              {state.events.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
+      {!isLoadingCompanies && !companyError && selectedCompany && (
+        <>
+          {state.kind === 'loading' && (
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.primary} />
             </View>
           )}
-        </View>
+
+          {state.kind === 'error' && (
+            <View style={styles.section}>
+              <View style={styles.errorBox}>
+                <Text style={styles.errorTitle}>
+                  Impossible de charger l&apos;activité
+                </Text>
+                <Text style={styles.errorMessage}>{state.message}</Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.retryButtonPressed,
+                ]}
+                onPress={load}
+              >
+                <Text style={styles.retryLabel}>Réessayer</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {state.kind === 'ready' && (
+            <View style={styles.section}>
+              <Text style={styles.companyLabel}>
+                {state.company.name.toUpperCase()}
+              </Text>
+
+              {state.events.length === 0 ? (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyText}>
+                    Aucune activité pour le moment.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.list}>
+                  {state.events.map((event) => (
+                    <EventCard key={event.id} event={event} />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </>
       )}
     </AppScreen>
   );

@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../../src/auth/AuthContext';
-import type { CompanyAccess, MeResponse } from '../../src/auth/authTypes';
+import type { CompanyAccess } from '../../src/auth/authTypes';
+import { useCompany } from '../../src/companies/CompanyContext';
 import {
   createSupportRequest,
   fetchSupportRequests,
@@ -199,6 +200,7 @@ function TicketCard({ ticket }: { ticket: SupportRequest }) {
 
 export default function SupportScreen() {
   const { authenticatedRequest } = useAuth();
+  const { selectedCompany, isLoadingCompanies, companyError, refreshCompanies } = useCompany();
 
   // Screen state
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
@@ -214,27 +216,19 @@ export default function SupportScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Full initial load: /auth/me → company → tickets.
+  // Load tickets for the selected company.
   const load = useCallback(async () => {
+    if (!selectedCompany) return;
     setState({ kind: 'loading' });
     try {
-      const me = await authenticatedRequest<MeResponse>('/auth/me');
-      const activeCompany =
-        me.companies.find((c) => c.status === 'active') ?? null;
-
-      if (!activeCompany) {
-        setState({ kind: 'no_company' });
-        return;
-      }
-
       const data = await fetchSupportRequests(
-        activeCompany.id,
+        selectedCompany.id,
         authenticatedRequest,
         20,
       );
       setState({
         kind: 'ready',
-        company: activeCompany,
+        company: selectedCompany,
         tickets: data.supportRequests,
         listLoading: false,
       });
@@ -243,7 +237,7 @@ export default function SupportScreen() {
         err instanceof Error ? err.message : 'Une erreur est survenue.';
       setState({ kind: 'error', message: msg });
     }
-  }, [authenticatedRequest]);
+  }, [selectedCompany, authenticatedRequest]);
 
   // Silent list refresh after ticket creation — keeps the form visible.
   const reloadTickets = useCallback(
@@ -339,35 +333,35 @@ export default function SupportScreen() {
         <Text style={styles.title}>Demander de l&apos;aide</Text>
       </View>
 
-      {/* ── Full-screen states ───────────────────────────── */}
+      {/* ── Global states (company loading/error) ─────────── */}
 
-      {state.kind === 'loading' && (
+      {isLoadingCompanies && (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} />
         </View>
       )}
 
-      {state.kind === 'error' && (
+      {companyError && (
         <View style={styles.section}>
           <View style={styles.errorBox}>
             <Text style={styles.errorTitle}>
-              Impossible de charger le support
+              Impossible de charger les entreprises
             </Text>
-            <Text style={styles.errorMessage}>{state.message}</Text>
+            <Text style={styles.errorMessage}>{companyError}</Text>
           </View>
           <Pressable
             style={({ pressed }) => [
               styles.outlineButton,
               pressed && styles.outlineButtonPressed,
             ]}
-            onPress={load}
+            onPress={refreshCompanies}
           >
             <Text style={styles.outlineButtonLabel}>Réessayer</Text>
           </Pressable>
         </View>
       )}
 
-      {state.kind === 'no_company' && (
+      {!isLoadingCompanies && !companyError && !selectedCompany && (
         <View style={styles.section}>
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
@@ -377,129 +371,159 @@ export default function SupportScreen() {
         </View>
       )}
 
-      {/* ── Ready: form + list ───────────────────────────── */}
+      {/* ── Local states (support data) ──────────────────── */}
 
-      {state.kind === 'ready' && (
+      {!isLoadingCompanies && !companyError && selectedCompany && (
         <>
-          <Text style={styles.companyLabel}>
-            {state.company.name.toUpperCase()}
-          </Text>
-
-          {/* Form */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Nouvelle demande</Text>
-
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Titre</Text>
-              <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Ex : Problème sur la page d'accueil"
-                placeholderTextColor={colors.textMuted}
-                autoCorrect={false}
-                editable={!submitting}
-                maxLength={200}
-              />
+          {state.kind === 'loading' && (
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.primary} />
             </View>
+          )}
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Message</Text>
-              <TextInput
-                style={[styles.input, styles.inputMultiline]}
-                value={message}
-                onChangeText={setMessage}
-                placeholder="Décrivez votre demande en détail..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                autoCorrect={false}
-                editable={!submitting}
-                maxLength={5000}
-              />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Type</Text>
-              <ChipSelector
-                options={TYPE_OPTIONS}
-                selected={selectedType}
-                onSelect={setSelectedType}
-                disabled={submitting}
-              />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Priorité</Text>
-              <ChipSelector
-                options={PRIORITY_OPTIONS}
-                selected={selectedPriority}
-                onSelect={setSelectedPriority}
-                disabled={submitting}
-              />
-            </View>
-
-            {formError ? (
+          {state.kind === 'error' && (
+            <View style={styles.section}>
               <View style={styles.errorBox}>
-                <Text style={styles.errorMessage}>{formError}</Text>
-              </View>
-            ) : null}
-
-            {submitSuccess ? (
-              <View style={styles.successBox}>
-                <Text style={styles.successText}>
-                  Demande envoyée avec succès.
+                <Text style={styles.errorTitle}>
+                  Impossible de charger le support
                 </Text>
+                <Text style={styles.errorMessage}>{state.message}</Text>
               </View>
-            ) : null}
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.primaryButtonPressed,
-                submitting && styles.primaryButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryButtonLabel}>
-                  Envoyer la demande
-                </Text>
-              )}
-            </Pressable>
-          </View>
-
-          {/* Ticket list */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Demandes récentes</Text>
-              {state.listLoading && (
-                <ActivityIndicator
-                  color={colors.primary}
-                  size="small"
-                  style={styles.listSpinner}
-                />
-              )}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.outlineButton,
+                  pressed && styles.outlineButtonPressed,
+                ]}
+                onPress={load}
+              >
+                <Text style={styles.outlineButtonLabel}>Réessayer</Text>
+              </Pressable>
             </View>
+          )}
 
-            {state.tickets.length === 0 && !state.listLoading ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>
-                  Aucune demande support pour le moment.
-                </Text>
+          {state.kind === 'ready' && (
+            <>
+              <Text style={styles.companyLabel}>
+                {state.company.name.toUpperCase()}
+              </Text>
+
+              {/* Form */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Nouvelle demande</Text>
+
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Titre</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={title}
+                    onChangeText={setTitle}
+                    placeholder="Ex : Problème sur la page d'accueil"
+                    placeholderTextColor={colors.textMuted}
+                    autoCorrect={false}
+                    editable={!submitting}
+                    maxLength={200}
+                  />
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Message</Text>
+                  <TextInput
+                    style={[styles.input, styles.inputMultiline]}
+                    value={message}
+                    onChangeText={setMessage}
+                    placeholder="Décrivez votre demande en détail..."
+                    placeholderTextColor={colors.textMuted}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    autoCorrect={false}
+                    editable={!submitting}
+                    maxLength={5000}
+                  />
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Type</Text>
+                  <ChipSelector
+                    options={TYPE_OPTIONS}
+                    selected={selectedType}
+                    onSelect={setSelectedType}
+                    disabled={submitting}
+                  />
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Priorité</Text>
+                  <ChipSelector
+                    options={PRIORITY_OPTIONS}
+                    selected={selectedPriority}
+                    onSelect={setSelectedPriority}
+                    disabled={submitting}
+                  />
+                </View>
+
+                {formError ? (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorMessage}>{formError}</Text>
+                  </View>
+                ) : null}
+
+                {submitSuccess ? (
+                  <View style={styles.successBox}>
+                    <Text style={styles.successText}>
+                      Demande envoyée avec succès.
+                    </Text>
+                  </View>
+                ) : null}
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.primaryButtonPressed,
+                    submitting && styles.primaryButtonDisabled,
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonLabel}>
+                      Envoyer la demande
+                    </Text>
+                  )}
+                </Pressable>
               </View>
-            ) : (
-              <View style={styles.list}>
-                {state.tickets.map((ticket) => (
-                  <TicketCard key={ticket.id} ticket={ticket} />
-                ))}
+
+              {/* Ticket list */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Demandes récentes</Text>
+                  {state.listLoading && (
+                    <ActivityIndicator
+                      color={colors.primary}
+                      size="small"
+                      style={styles.listSpinner}
+                    />
+                  )}
+                </View>
+
+                {state.tickets.length === 0 && !state.listLoading ? (
+                  <View style={styles.emptyBox}>
+                    <Text style={styles.emptyText}>
+                      Aucune demande support pour le moment.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.list}>
+                    {state.tickets.map((ticket) => (
+                      <TicketCard key={ticket.id} ticket={ticket} />
+                    ))}
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+            </>
+          )}
         </>
       )}
     </AppScreen>
