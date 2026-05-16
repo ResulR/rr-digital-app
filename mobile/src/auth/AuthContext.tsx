@@ -1,15 +1,14 @@
-// In-memory only auth session. No persistence (SecureStore/AsyncStorage).
-// Reloading the app means the user must log in again - by design for this step.
-
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import { apiLogin, apiLogout } from './authApi';
+import { clearAuthSession, loadAuthSession, saveAuthSession } from './authStorage';
 import type { AuthSession, PublicUser } from './authTypes';
 
 interface AuthContextValue {
@@ -17,6 +16,7 @@ interface AuthContextValue {
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  isRestoringSession: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -25,23 +25,40 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
+
+  // On mount: try to restore a previously saved session from SecureStore.
+  useEffect(() => {
+    loadAuthSession()
+      .then((saved) => {
+        if (saved) {
+          setSession(saved);
+        }
+      })
+      .finally(() => {
+        setIsRestoringSession(false);
+      });
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string): Promise<void> => {
       const result = await apiLogin({ email, password });
-      setSession({
+      const newSession: AuthSession = {
         user: result.user,
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
-      });
+      };
+      await saveAuthSession(newSession);
+      setSession(newSession);
     },
     [],
   );
 
   const logout = useCallback(async (): Promise<void> => {
     const currentRefreshToken = session?.refreshToken;
-    // Always clear local state first so the UI updates immediately.
+    // Clear local state and SecureStore immediately so the UI updates.
     setSession(null);
+    await clearAuthSession().catch(() => {});
     if (currentRefreshToken) {
       // Best-effort server-side revoke; swallow errors so logout
       // always succeeds locally even if the network is down.
@@ -59,10 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken: session?.accessToken ?? null,
       refreshToken: session?.refreshToken ?? null,
       isAuthenticated: session !== null,
+      isRestoringSession,
       login,
       logout,
     }),
-    [session, login, logout],
+    [session, isRestoringSession, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -75,3 +93,4 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
+

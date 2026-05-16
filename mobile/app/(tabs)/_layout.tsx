@@ -1,10 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../../src/auth/AuthContext';
 import { colors } from '../../src/theme/colors';
 
 export default function TabsLayout() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isRestoringSession } = useAuth();
+
+  // Wait for SecureStore restore before deciding where to redirect.
+  if (isRestoringSession) {
+    return (
+      <View style={styles.splash}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   // In-memory only session: if the user reloads the app or arrives at /(tabs)
   // without having signed in, send them back to the login screen.
@@ -75,3 +85,11 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

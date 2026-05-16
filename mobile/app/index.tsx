@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,11 +17,19 @@ import { typography } from '../src/theme/typography';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isRestoringSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // While the session is being restored from SecureStore, render nothing.
+  // The tabs layout will handle the spinner and redirect if authenticated.
+  if (isRestoringSession) return null;
+
+  if (isAuthenticated) {
+    return <Redirect href="/(tabs)/home" />;
+  }
 
   const handleSubmit = async () => {
     if (loading) return;
@@ -207,4 +215,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 });
+
 
