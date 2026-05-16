@@ -1,19 +1,48 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useAuth } from '../src/auth/AuthContext';
 import { AppScreen } from '../src/components/AppScreen';
+import { ApiError } from '../src/lib/apiClient';
 import { colors } from '../src/theme/colors';
 import { radius, spacing } from '../src/theme/spacing';
 import { typography } from '../src/theme/typography';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Static-only flow for this step: no API call, just navigate to tabs.
-  const handleSubmit = () => {
-    router.replace('/(tabs)/home');
+  const handleSubmit = async () => {
+    if (loading) return;
+    setErrorMsg(null);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setErrorMsg('Veuillez renseigner votre email et votre mot de passe.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await login(trimmedEmail, password);
+      setPassword('');
+      router.replace('/(tabs)/home');
+    } catch (err) {
+      setErrorMsg(messageForLoginError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,6 +67,7 @@ export default function LoginScreen() {
               keyboardType="email-address"
               placeholder="vous@exemple.com"
               placeholderTextColor={colors.textMuted}
+              editable={!loading}
             />
           </View>
 
@@ -49,8 +79,12 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="password"
+              autoComplete="password"
               placeholder="••••••••"
               placeholderTextColor={colors.textMuted}
+              editable={!loading}
             />
           </View>
 
@@ -58,19 +92,46 @@ export default function LoginScreen() {
             style={({ pressed }) => [
               styles.button,
               pressed && styles.buttonPressed,
+              loading && styles.buttonDisabled,
             ]}
             onPress={handleSubmit}
+            disabled={loading}
           >
-            <Text style={styles.buttonLabel}>Se connecter</Text>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.buttonLabel}>Se connecter</Text>
+            )}
           </Pressable>
 
+          {errorMsg ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
+          ) : null}
+
           <Text style={styles.helper}>
-            Besoin d'aide ? Contactez votre référent.
+            Besoin d&apos;aide ? Contactez votre référent.
           </Text>
         </View>
       </View>
     </AppScreen>
   );
+}
+
+function messageForLoginError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 0) {
+      return 'Pas de connexion. Vérifiez votre réseau et réessayez.';
+    }
+    if (err.status === 401) {
+      return 'Email ou mot de passe incorrect.';
+    }
+    if (err.status === 429) {
+      return 'Trop de tentatives. Réessayez dans quelques minutes.';
+    }
+  }
+  return 'Connexion impossible pour le moment.';
 }
 
 const styles = StyleSheet.create({
@@ -120,10 +181,24 @@ const styles = StyleSheet.create({
   buttonPressed: {
     backgroundColor: colors.primarySoft,
   },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
   buttonLabel: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorBox: {
+    backgroundColor: '#FBEEEC',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E6BFB7',
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  errorText: {
+    ...typography.small,
+    color: '#8A2A1B',
   },
   helper: {
     ...typography.small,
@@ -132,3 +207,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 });
+

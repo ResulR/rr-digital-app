@@ -1,8 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
+import { useAuth } from '../../src/auth/AuthContext';
 import { colors } from '../../src/theme/colors';
 
 export default function TabsLayout() {
+  const { isAuthenticated } = useAuth();
+
+  // In-memory only session: if the user reloads the app or arrives at /(tabs)
+  // without having signed in, send them back to the login screen.
+  if (!isAuthenticated) {
+    return <Redirect href="/" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
