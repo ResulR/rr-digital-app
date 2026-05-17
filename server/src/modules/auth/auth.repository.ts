@@ -120,12 +120,25 @@ export async function listUserCompanies(
   userId: string,
 ): Promise<CompanyAccess[]> {
   const result = await getPool().query<CompanyAccess>(
-    `SELECT c.id, c.name, c.status, cu.role
-       FROM company_users cu
-       JOIN companies c ON c.id = cu.company_id
-      WHERE cu.user_id = $1
-        AND cu.status = 'active'
-      ORDER BY c.name ASC`,
+    `SELECT
+       c.id,
+       c.name,
+       c.status,
+       cu.role,
+       COALESCE(
+         array_agg(cm.module_key ORDER BY cm.module_key)
+           FILTER (WHERE cm.module_key IS NOT NULL),
+         ARRAY[]::text[]
+       ) AS modules
+     FROM company_users cu
+     JOIN companies c ON c.id = cu.company_id
+     LEFT JOIN company_modules cm
+       ON cm.company_id = c.id
+      AND cm.active = true
+     WHERE cu.user_id = $1
+       AND cu.status = 'active'
+     GROUP BY c.id, c.name, c.status, cu.role
+     ORDER BY c.name ASC`,
     [userId],
   );
   return result.rows;

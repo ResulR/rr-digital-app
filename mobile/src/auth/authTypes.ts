@@ -34,6 +34,7 @@ export interface CompanyAccess {
   name: string;
   status: string;
   role: string;
+  modules: string[];
 }
 
 // GET /auth/me response
