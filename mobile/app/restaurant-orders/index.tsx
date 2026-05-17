@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,6 +12,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthContext';
 import { useCompany } from '../../src/companies/CompanyContext';
 import { fetchRestaurantOrders } from '../../src/restaurant/restaurantApi';
+import type { FetchOrdersParams } from '../../src/restaurant/restaurantApi';
 import type { RestaurantOrder } from '../../src/restaurant/restaurantTypes';
 import { AppScreen } from '../../src/components/AppScreen';
 import { colors } from '../../src/theme/colors';
@@ -18,6 +20,69 @@ import { radius, spacing } from '../../src/theme/spacing';
 import { typography } from '../../src/theme/typography';
 
 const MODULE_KEY = 'restaurant_orders';
+
+// --- Filters ---------------------------------------------------------------
+
+type FilterKey =
+  | 'today'
+  | 'recent'
+  | 'preparing'
+  | 'ready'
+  | 'in_delivery'
+  | 'completed'
+  | 'cancelled';
+
+interface FilterConfig {
+  key: FilterKey;
+  label: string;
+  params: FetchOrdersParams;
+  emptyText: string;
+}
+
+const FILTERS: FilterConfig[] = [
+  {
+    key: 'today',
+    label: "Aujourd'hui",
+    params: { date: 'today', limit: 50 },
+    emptyText: "Aucune commande trouvee aujourd'hui.",
+  },
+  {
+    key: 'recent',
+    label: 'Toutes recentes',
+    params: { limit: 50 },
+    emptyText: 'Aucune commande pour ce filtre.',
+  },
+  {
+    key: 'preparing',
+    label: 'En preparation',
+    params: { status: 'preparing', limit: 50 },
+    emptyText: 'Aucune commande pour ce filtre.',
+  },
+  {
+    key: 'ready',
+    label: 'Pretes',
+    params: { status: 'ready', limit: 50 },
+    emptyText: 'Aucune commande pour ce filtre.',
+  },
+  {
+    key: 'in_delivery',
+    label: 'En livraison',
+    params: { status: 'in_delivery', limit: 50 },
+    emptyText: 'Aucune commande pour ce filtre.',
+  },
+  {
+    key: 'completed',
+    label: 'Terminees',
+    params: { status: 'completed', limit: 50 },
+    emptyText: 'Aucune commande pour ce filtre.',
+  },
+  {
+    key: 'cancelled',
+    label: 'Annulees',
+    params: { status: 'cancelled', limit: 50 },
+    emptyText: 'Aucune commande pour ce filtre.',
+  },
+];
 
 // --- Helpers ---------------------------------------------------------------
 
@@ -91,12 +156,38 @@ function formatDate(dateStr: string): string {
 
 // --- Sub-components --------------------------------------------------------
 
+function FilterChip({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.filterChip,
+        isActive ? styles.filterChipActive : null,
+        pressed && !isActive ? styles.filterChipPressed : null,
+      ]}
+    >
+      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function OrderCard({ order }: { order: RestaurantOrder }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.orderCard, pressed && styles.orderCardPressed]}
       // Typed routes: using `as never` because .expo/types/router.d.ts is
-      // auto-generated and does not yet include this dynamic route.
+      // auto-generated; the route is declared there but the string template
+      // literal form isn't always inferred correctly at typecheck time.
       onPress={() => router.push(`/restaurant-orders/${order.id}` as never)}
     >
       <View style={styles.orderCardTop}>
@@ -132,19 +223,27 @@ export default function RestaurantOrdersScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('today');
 
   const hasModule = selectedCompany?.modules.includes(MODULE_KEY) ?? false;
+
+  // Stable reference: FILTERS is a module-level const, .find returns the same
+  // object reference for the same key, so this only changes when activeFilter changes.
+  const filterConfig = FILTERS.find((f) => f.key === activeFilter) ?? FILTERS[0];
 
   const loadOrders = useCallback(
     async (silent = false) => {
       if (!selectedCompany || !hasModule) return;
-      if (!silent) setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+        setOrders([]); // clear stale results immediately when filter changes
+      }
       setError(null);
       try {
         const result = await fetchRestaurantOrders(
           selectedCompany.id,
           authenticatedRequest,
-          { date: 'today', limit: 50 },
+          filterConfig.params,
         );
         setOrders(result.orders);
       } catch (err) {
@@ -155,9 +254,10 @@ export default function RestaurantOrdersScreen() {
         setIsLoading(false);
       }
     },
-    [selectedCompany, hasModule, authenticatedRequest],
+    [selectedCompany, hasModule, authenticatedRequest, filterConfig],
   );
 
+  // Reload whenever the filter or company changes.
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
@@ -170,6 +270,11 @@ export default function RestaurantOrdersScreen() {
       setIsRefreshing(false);
     }
   }, [loadOrders]);
+
+  const handleFilterChange = useCallback((key: FilterKey) => {
+    setActiveFilter(key);
+    // loadOrders will fire via useEffect because filterConfig changes.
+  }, []);
 
   return (
     <AppScreen
@@ -192,9 +297,12 @@ export default function RestaurantOrdersScreen() {
         </Pressable>
         <Text style={styles.eyebrow}>GESTION</Text>
         <Text style={styles.title}>Commandes restaurant</Text>
-        {selectedCompany ? (
-          <Text style={styles.companyLabel}>{selectedCompany.name.toUpperCase()}</Text>
-        ) : null}
+        <View style={styles.headerMeta}>
+          {selectedCompany ? (
+            <Text style={styles.companyLabel}>{selectedCompany.name.toUpperCase()}</Text>
+          ) : null}
+          <Text style={styles.readonlyLabel}>Lecture seule</Text>
+        </View>
       </View>
 
       {/* Module not enabled */}
@@ -217,54 +325,77 @@ export default function RestaurantOrdersScreen() {
         </View>
       )}
 
-      {/* Loading */}
-      {hasModule && selectedCompany && isLoading && (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      )}
-
-      {/* Error */}
-      {hasModule && selectedCompany && !isLoading && error && (
-        <View style={styles.section}>
-          <View style={styles.errorBox}>
-            <Text style={styles.errorTitle}>Impossible de charger les commandes.</Text>
-            <Text style={styles.errorMessage}>{error}</Text>
-          </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.retryButton,
-              pressed && styles.retryButtonPressed,
-            ]}
-            onPress={() => loadOrders()}
+      {/* Filters + content (shown when module is enabled and company is selected) */}
+      {hasModule && selectedCompany && (
+        <View style={styles.mainContent}>
+          {/* Filter chips row */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersRow}
+            style={styles.filtersScroll}
           >
-            <Text style={styles.retryLabel}>Reessayer</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* Empty */}
-      {hasModule && selectedCompany && !isLoading && !error && orders.length === 0 && (
-        <View style={styles.section}>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>Aucune commande trouvee.</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Order list */}
-      {hasModule && selectedCompany && !isLoading && !error && orders.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {orders.length}{' '}
-            {orders.length > 1 ? 'commandes' : 'commande'}{' '}
-            {"aujourd'hui"}
-          </Text>
-          <View style={styles.orderList}>
-            {orders.map((order) => (
-              <OrderCard key={order.id} order={order} />
+            {FILTERS.map((filter) => (
+              <FilterChip
+                key={filter.key}
+                label={filter.label}
+                isActive={activeFilter === filter.key}
+                onPress={() => handleFilterChange(filter.key)}
+              />
             ))}
-          </View>
+          </ScrollView>
+
+          {/* Loading */}
+          {isLoading && (
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          )}
+
+          {/* Error */}
+          {!isLoading && error && (
+            <View style={styles.section}>
+              <View style={styles.errorBox}>
+                <Text style={styles.errorTitle}>
+                  Impossible de charger les commandes.
+                </Text>
+                <Text style={styles.errorMessage}>{error}</Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.retryButtonPressed,
+                ]}
+                onPress={() => loadOrders()}
+              >
+                <Text style={styles.retryLabel}>Reessayer</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Empty */}
+          {!isLoading && !error && orders.length === 0 && (
+            <View style={styles.section}>
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>{filterConfig.emptyText}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Order list */}
+          {!isLoading && !error && orders.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {orders.length}{' '}
+                {orders.length > 1 ? 'commandes' : 'commande'}
+              </Text>
+              <View style={styles.orderList}>
+                {orders.map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
+              </View>
+            </View>
+          )}
         </View>
       )}
     </AppScreen>
@@ -299,14 +430,59 @@ const styles = StyleSheet.create({
     ...typography.display,
     color: colors.primary,
   },
+  headerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
   companyLabel: {
     ...typography.small,
     color: colors.textMuted,
     letterSpacing: 1.2,
   },
+  readonlyLabel: {
+    ...typography.small,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
+  mainContent: {
+    gap: spacing.md,
+  },
+  filtersScroll: {
+    marginHorizontal: -spacing.xl, // bleed to screen edges
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSoft,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipPressed: {
+    backgroundColor: colors.border,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: colors.surface,
+    fontWeight: '600',
+  },
   centered: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingTop: spacing.xxxl,
   },
