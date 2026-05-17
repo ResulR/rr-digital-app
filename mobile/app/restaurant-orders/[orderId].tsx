@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -98,20 +99,45 @@ function itemLabel(item: RestaurantOrderItem): string {
   const parts: string[] = [];
   if (item.productNameSnapshot) parts.push(item.productNameSnapshot);
   if (item.variantNameSnapshot) parts.push(item.variantNameSnapshot);
-  return parts.join(' - ') || '—';
+  return parts.join(' - ') || '-';
+}
+
+// Open an external URL (tel: or mailto:). Errors swallowed silently.
+function openUrl(url: string): void {
+  Linking.openURL(url).catch(() => {});
 }
 
 // --- Sub-components --------------------------------------------------------
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+// Top summary card - status, mode, total and date at a glance.
+function SummaryCard({ order }: { order: RestaurantOrderDetail }) {
+  const statusColor = colorForStatus(order.status);
   return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryTopRow}>
+        <View style={[styles.statusBadgeLg, { borderColor: statusColor }]}>
+          <Text style={[styles.statusBadgeLgText, { color: statusColor }]}>
+            {labelForStatus(order.status)}
+          </Text>
+        </View>
+        <View style={styles.fulfillmentPill}>
+          <Text style={styles.fulfillmentPillText}>
+            {labelForFulfillment(order.fulfillmentMethod)}
+          </Text>
+        </View>
+      </View>
+      <Text style={styles.summaryTotal}>{formatCents(order.totalCents)}</Text>
+      <Text style={styles.summaryDate}>{formatDate(order.createdAt)}</Text>
+      {order.paidAt ? (
+        <Text style={styles.summaryPaidAt}>
+          {'Paye le ' + formatDate(order.paidAt)}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
+// Section wrapper card with a title.
 function SectionCard({
   title,
   children,
@@ -127,19 +153,64 @@ function SectionCard({
   );
 }
 
+// Static info row (label left, value right).
+function DetailRow({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  );
+}
+
+// Tappable contact row - opens tel: or mailto: link.
+function ContactRow({
+  label,
+  value,
+  url,
+}: {
+  label: string;
+  value: string;
+  url: string;
+}) {
+  if (!value) return null;
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.detailRow, pressed && styles.contactRowPressed]}
+      onPress={() => openUrl(url)}
+    >
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={[styles.detailValue, styles.linkText]}>{value}</Text>
+    </Pressable>
+  );
+}
+
+// Highlighted note box shown when customerNote is present.
+function NoteBox({ note }: { note: string }) {
+  return (
+    <View style={styles.noteBox}>
+      <Text style={styles.noteLabel}>Note client</Text>
+      <Text style={styles.noteText}>{note}</Text>
+    </View>
+  );
+}
+
+// One article line - name, variant, unit price x qty -> line total.
 function ItemRow({ item }: { item: RestaurantOrderItem }) {
+  const name = itemLabel(item);
   return (
     <View style={styles.itemRow}>
-      <View style={styles.itemLeft}>
-        <Text style={styles.itemName}>{itemLabel(item)}</Text>
+      <View style={styles.itemMain}>
+        <Text style={styles.itemName}>{name}</Text>
         {item.variantCodeSnapshot ? (
           <Text style={styles.itemVariantCode}>{item.variantCodeSnapshot}</Text>
         ) : null}
+        <Text style={styles.itemUnitPrice}>
+          {formatCents(item.unitPriceCents)} x {item.quantity}
+        </Text>
       </View>
-      <View style={styles.itemRight}>
-        <Text style={styles.itemQty}>x{item.quantity}</Text>
-        <Text style={styles.itemTotal}>{formatCents(item.lineTotalCents)}</Text>
-      </View>
+      <Text style={styles.itemLineTotal}>{formatCents(item.lineTotalCents)}</Text>
     </View>
   );
 }
@@ -233,38 +304,30 @@ export default function RestaurantOrderDetailScreen() {
       {/* Order detail */}
       {hasModule && !isLoading && !error && order && (
         <View style={styles.bodyGap}>
-          {/* Status + fulfillment */}
-          <SectionCard title="Statut">
-            <View style={styles.statusRow}>
-              <View
-                style={[styles.statusBadge, { borderColor: colorForStatus(order.status) }]}
-              >
-                <Text
-                  style={[
-                    styles.statusBadgeText,
-                    { color: colorForStatus(order.status) },
-                  ]}
-                >
-                  {labelForStatus(order.status)}
-                </Text>
-              </View>
-              <Text style={styles.fulfillmentText}>
-                {labelForFulfillment(order.fulfillmentMethod)}
-              </Text>
-            </View>
-            <DetailRow label="Date" value={formatDate(order.createdAt)} />
-            {order.paidAt ? (
-              <DetailRow label="Paye le" value={formatDate(order.paidAt)} />
-            ) : null}
-          </SectionCard>
 
-          {/* Client */}
+          {/* 1. Summary card - status / mode / total / date */}
+          <SummaryCard order={order} />
+
+          {/* 2. Note client - highlighted if present */}
+          {order.customerNote ? (
+            <NoteBox note={order.customerNote} />
+          ) : null}
+
+          {/* 3. Client - phone and email tappable */}
           <SectionCard title="Client">
             {order.customerName ? (
               <DetailRow label="Nom" value={order.customerName} />
             ) : null}
-            <DetailRow label="Email" value={order.customerEmail} />
-            <DetailRow label="Tel." value={order.customerPhone} />
+            <ContactRow
+              label="Tel."
+              value={order.customerPhone}
+              url={'tel:' + order.customerPhone}
+            />
+            <ContactRow
+              label="Email"
+              value={order.customerEmail}
+              url={'mailto:' + order.customerEmail}
+            />
             {order.fulfillmentMethod === 'delivery' && order.deliveryAddressLine1 ? (
               <View>
                 <DetailRow label="Adresse" value={order.deliveryAddressLine1} />
@@ -278,12 +341,9 @@ export default function RestaurantOrderDetailScreen() {
                 ) : null}
               </View>
             ) : null}
-            {order.customerNote ? (
-              <DetailRow label="Note" value={order.customerNote} />
-            ) : null}
           </SectionCard>
 
-          {/* Articles */}
+          {/* 4. Articles */}
           {order.items.length > 0 && (
             <SectionCard title="Articles">
               {order.items.map((item) => (
@@ -292,18 +352,23 @@ export default function RestaurantOrderDetailScreen() {
             </SectionCard>
           )}
 
-          {/* Total */}
+          {/* 5. Total breakdown */}
           <SectionCard title="Total">
-            <DetailRow label="Sous-total" value={formatCents(order.subtotalCents)} />
+            <DetailRow
+              label="Sous-total"
+              value={formatCents(order.subtotalCents)}
+            />
             {order.fulfillmentMethod === 'delivery' && (
               <DetailRow
                 label="Livraison"
                 value={formatCents(order.deliveryFeeCents)}
               />
             )}
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>{formatCents(order.totalCents)}</Text>
+            <View style={styles.grandTotalRow}>
+              <Text style={styles.grandTotalLabel}>Total</Text>
+              <Text style={styles.grandTotalValue}>
+                {formatCents(order.totalCents)}
+              </Text>
             </View>
           </SectionCard>
         </View>
@@ -349,6 +414,85 @@ const styles = StyleSheet.create({
   bodyGap: {
     gap: spacing.md,
   },
+
+  // --- Summary card --------------------------------------------------------
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    gap: spacing.sm,
+  },
+  summaryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  statusBadgeLg: {
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderWidth: 1.5,
+  },
+  statusBadgeLgText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  fulfillmentPill: {
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: radius.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  fulfillmentPillText: {
+    ...typography.small,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  summaryTotal: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: -0.5,
+    marginTop: spacing.xs,
+  },
+  summaryDate: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  summaryPaidAt: {
+    ...typography.small,
+    color: '#2D7A45',
+  },
+
+  // --- Note client ---------------------------------------------------------
+  noteBox: {
+    backgroundColor: '#FDF8EE',
+    borderRadius: radius.md,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    gap: spacing.xs,
+  },
+  noteLabel: {
+    ...typography.small,
+    color: colors.accent,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  noteText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    lineHeight: 22,
+  },
+
+  // --- Section card --------------------------------------------------------
   sectionCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -362,26 +506,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  statusBadge: {
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  fulfillmentText: {
-    ...typography.small,
-    color: colors.textSecondary,
-  },
+
+  // --- Detail / contact rows -----------------------------------------------
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -389,6 +515,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+  },
+  contactRowPressed: {
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: radius.sm,
   },
   detailLabel: {
     ...typography.small,
@@ -401,55 +531,70 @@ const styles = StyleSheet.create({
     flex: 2,
     textAlign: 'right',
   },
+  linkText: {
+    color: colors.primary,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+
+  // --- Items ---------------------------------------------------------------
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  itemLeft: {
+  itemMain: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   itemName: {
     ...typography.body,
     color: colors.textPrimary,
+    fontWeight: '500',
   },
   itemVariantCode: {
     ...typography.small,
     color: colors.textMuted,
   },
-  itemRight: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  itemQty: {
+  itemUnitPrice: {
     ...typography.small,
     color: colors.textSecondary,
+    marginTop: 2,
   },
-  itemTotal: {
-    ...typography.small,
+  itemLineTotal: {
+    ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
+    paddingTop: 2,
   },
-  totalRow: {
+
+  // --- Grand total ---------------------------------------------------------
+  grandTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: spacing.xs,
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    marginTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  totalLabel: {
-    ...typography.body,
-    fontWeight: '600',
+  grandTotalLabel: {
+    fontSize: 17,
+    fontWeight: '700',
     color: colors.textPrimary,
   },
-  totalValue: {
-    ...typography.body,
+  grandTotalValue: {
+    fontSize: 22,
     fontWeight: '700',
     color: colors.primary,
+    letterSpacing: -0.3,
   },
+
+  // --- Info / error --------------------------------------------------------
   infoBox: {
     backgroundColor: colors.surfaceSoft,
     borderRadius: radius.md,
