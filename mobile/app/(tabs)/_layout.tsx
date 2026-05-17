@@ -47,6 +47,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="management"
+        options={{
+          title: 'Gestion',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="apps-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="projects"
         options={{
           title: 'Projets',
