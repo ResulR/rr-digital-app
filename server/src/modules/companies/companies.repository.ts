@@ -1,5 +1,14 @@
 import { getPool } from '../../db/pool';
-import type { EventRow, ProjectRow, SupportRequestRow } from './companies.types';
+import type {
+  CompanyInfoRow,
+  DashboardEventRow,
+  DashboardSupportRow,
+  EventRow,
+  ProjectCountsRow,
+  ProjectRow,
+  ScalarCountRow,
+  SupportRequestRow,
+} from './companies.types';
 
 export async function listProjects(companyId: string): Promise<ProjectRow[]> {
   const result = await getPool().query<ProjectRow>(
@@ -92,6 +101,120 @@ export async function projectBelongsToCompany(
     [projectId, companyId],
   );
   return result.rowCount !== null && result.rowCount > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard summary — all queries run in parallel via Promise.all.
+// Role-based filtering is identical to listSupportRequests:
+//   admin/superadmin → all company tickets
+//   user             → own tickets only (created_by_user_id = userId)
+// ---------------------------------------------------------------------------
+export async function getDashboardData(
+  companyId: string,
+  userId: string,
+  companyRole: string,
+): Promise<{
+  company: CompanyInfoRow | null;
+  projectCounts: ProjectCountsRow;
+  openSupportCount: string;
+  eventsLast7DaysCount: string;
+  latestEvents: DashboardEventRow[];
+  latestSupportRequests: DashboardSupportRow[];
+}> {
+  const pool = getPool();
+  const isAdminLevel = companyRole === 'admin' || companyRole === 'superadmin';
+
+  const [
+    companyResult,
+    projectCountsResult,
+    openSupportResult,
+    eventsCountResult,
+    latestEventsResult,
+    latestSupportResult,
+  ] = await Promise.all([
+    // Company info — needed to return name/status in the summary.
+    pool.query<CompanyInfoRow>(
+      `SELECT id, name, status FROM companies WHERE id = $1`,
+      [companyId],
+    ),
+
+    // Total + active project counts in one pass.
+    pool.query<ProjectCountsRow>(
+      `SELECT
+         COUNT(*)                                     AS total,
+         COUNT(*) FILTER (WHERE status = 'active')   AS active
+       FROM projects
+       WHERE company_id = $1`,
+      [companyId],
+    ),
+
+    // Open support requests — role-filtered.
+    isAdminLevel
+      ? pool.query<ScalarCountRow>(
+          `SELECT COUNT(*) AS count
+             FROM support_requests
+            WHERE company_id = $1
+              AND status = 'open'`,
+          [companyId],
+        )
+      : pool.query<ScalarCountRow>(
+          `SELECT COUNT(*) AS count
+             FROM support_requests
+            WHERE company_id           = $1
+              AND status               = 'open'
+              AND created_by_user_id   = $2`,
+          [companyId, userId],
+        ),
+
+    // Events in the last 7 days — same for all roles.
+    pool.query<ScalarCountRow>(
+      `SELECT COUNT(*) AS count
+         FROM events
+        WHERE company_id = $1
+          AND created_at >= NOW() - INTERVAL '7 days'`,
+      [companyId],
+    ),
+
+    // Latest 5 events — slim shape, same for all roles.
+    pool.query<DashboardEventRow>(
+      `SELECT id, type, title, description, severity, created_at
+         FROM events
+        WHERE company_id = $1
+        ORDER BY created_at DESC
+        LIMIT 5`,
+      [companyId],
+    ),
+
+    // Latest 5 support requests — role-filtered, slim shape.
+    isAdminLevel
+      ? pool.query<DashboardSupportRow>(
+          `SELECT id, title, type, priority, status, created_at
+             FROM support_requests
+            WHERE company_id = $1
+            ORDER BY created_at DESC
+            LIMIT 5`,
+          [companyId],
+        )
+      : pool.query<DashboardSupportRow>(
+          `SELECT id, title, type, priority, status, created_at
+             FROM support_requests
+            WHERE company_id         = $1
+              AND created_by_user_id = $2
+            ORDER BY created_at DESC
+            LIMIT 5`,
+          [companyId, userId],
+        ),
+  ]);
+
+  return {
+    company: companyResult.rows[0] ?? null,
+    // COUNT(*) always returns one row — safe to assert non-null.
+    projectCounts: projectCountsResult.rows[0] as ProjectCountsRow,
+    openSupportCount: (openSupportResult.rows[0] as ScalarCountRow).count,
+    eventsLast7DaysCount: (eventsCountResult.rows[0] as ScalarCountRow).count,
+    latestEvents: latestEventsResult.rows,
+    latestSupportRequests: latestSupportResult.rows,
+  };
 }
 
 export async function createSupportRequest(input: {

@@ -12,6 +12,41 @@ import * as service from './companies.service';
 const router = Router();
 
 // ---------------------------------------------------------------------------
+// GET /api/companies/:companyId/dashboard-summary
+// Returns a single aggregated summary for the company home screen.
+// Auth: any active member. Role affects latestSupportRequests + count:
+//   admin/superadmin → all company tickets
+//   user             → own tickets only
+// ---------------------------------------------------------------------------
+router.get(
+  '/:companyId/dashboard-summary',
+  requireAuth,
+  requireCompanyAccess,
+  async (req, res, next) => {
+    try {
+      if (!req.auth || !req.companyRole) {
+        throw new AppError(401, 'Authentication required');
+      }
+
+      const params = companyParamsSchema.safeParse(req.params);
+      if (!params.success) {
+        throw new AppError(400, 'Invalid company ID');
+      }
+
+      const summary = await service.getDashboardSummary(
+        params.data.companyId,
+        req.auth.userId,
+        req.companyRole,
+      );
+
+      res.json({ summary });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
 // GET /api/companies/:companyId/projects
 // Returns all projects for the company, ordered by name.
 // Auth: any active member. SuperAdmin bypass included via requireCompanyAccess.

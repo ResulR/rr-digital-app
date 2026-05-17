@@ -3,6 +3,7 @@ import * as repo from './companies.repository';
 import type {
   EventRow,
   ProjectRow,
+  PublicDashboardSummary,
   PublicEvent,
   PublicProject,
   PublicSupportRequest,
@@ -82,6 +83,56 @@ export async function getSupportRequests(
 ): Promise<PublicSupportRequest[]> {
   const rows = await repo.listSupportRequests(companyId, options);
   return rows.map(toSupportRequest);
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard summary
+// Role-based filtering is delegated to the repository so that the same rules
+// as GET /support-requests apply: admin/superadmin see all, user sees own.
+// ---------------------------------------------------------------------------
+export async function getDashboardSummary(
+  companyId: string,
+  userId: string,
+  companyRole: string,
+): Promise<PublicDashboardSummary> {
+  const data = await repo.getDashboardData(companyId, userId, companyRole);
+
+  if (!data.company) {
+    // requireCompanyAccess already verified membership, so this is a safety
+    // guard (company deleted between middleware and handler).
+    throw new AppError(404, 'Company not found');
+  }
+
+  return {
+    company: {
+      id: data.company.id,
+      name: data.company.name,
+      status: data.company.status,
+    },
+    counts: {
+      // COUNT(*) returns a string over the pg wire protocol.
+      projects: parseInt(data.projectCounts.total, 10),
+      activeProjects: parseInt(data.projectCounts.active, 10),
+      openSupportRequests: parseInt(data.openSupportCount, 10),
+      eventsLast7Days: parseInt(data.eventsLast7DaysCount, 10),
+    },
+    latestEvents: data.latestEvents.map((row) => ({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      description: row.description,
+      severity: row.severity,
+      createdAt: row.created_at,
+    })),
+    latestSupportRequests: data.latestSupportRequests.map((row) => ({
+      id: row.id,
+      title: row.title,
+      type: row.type,
+      priority: row.priority,
+      status: row.status,
+      createdAt: row.created_at,
+    })),
+  };
 }
 
 export async function createSupportRequest(input: {
