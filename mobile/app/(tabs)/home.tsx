@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -261,6 +262,7 @@ export default function HomeScreen() {
     refreshCompanies,
   } = useCompany();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Tracks whether the initial load has already been triggered by useEffect,
   // so useFocusEffect can skip it on first mount and only run on return focus.
@@ -298,6 +300,16 @@ export default function HomeScreen() {
     }
   }, [selectedCompany, authenticatedRequest]);
 
+  // Pull-to-refresh — shows native indicator, reuses silentRefresh logic.
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await silentRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [silentRefresh]);
+
   // Initial load + refresh when selectedCompany changes.
   useEffect(() => {
     load();
@@ -317,7 +329,15 @@ export default function HomeScreen() {
   );
 
   return (
-    <AppScreen>
+    <AppScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
       {/* ── Header ───────────────────────────────────────── */}
       <View style={styles.header}>
         <Text style={styles.eyebrow}>ACCUEIL</Text>

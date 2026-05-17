@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -122,6 +123,7 @@ export default function ActivityScreen() {
   const { authenticatedRequest } = useAuth();
   const { selectedCompany, isLoadingCompanies, companyError, refreshCompanies } = useCompany();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!selectedCompany) return;
@@ -136,12 +138,34 @@ export default function ActivityScreen() {
     }
   }, [selectedCompany, authenticatedRequest]);
 
+  // Pull-to-refresh — fetches without resetting state to loading.
+  const onRefresh = useCallback(async () => {
+    if (!selectedCompany) return;
+    setIsRefreshing(true);
+    try {
+      const data = await fetchEvents(selectedCompany.id, authenticatedRequest, 20);
+      setState({ kind: 'ready', company: selectedCompany, events: data.events });
+    } catch {
+      // Silent fail — existing data stays visible.
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [selectedCompany, authenticatedRequest]);
+
   useEffect(() => {
     load();
   }, [load]);
 
   return (
-    <AppScreen>
+    <AppScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>ACTIVITÉ</Text>
         <Text style={styles.title}>Fil d&apos;activité</Text>

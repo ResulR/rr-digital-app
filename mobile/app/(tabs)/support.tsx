@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -213,6 +214,7 @@ export default function SupportScreen() {
   const [selectedPriority, setSelectedPriority] =
     useState<CreateSupportRequestInput['priority']>('normal');
   const [submitting, setSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
@@ -322,12 +324,48 @@ export default function SupportScreen() {
     reloadTickets,
   ]);
 
+  // Pull-to-refresh — refreshes ticket list without resetting state to loading.
+  // Works from both ready and error states.
+  const onRefresh = useCallback(async () => {
+    if (!selectedCompany) return;
+    setIsRefreshing(true);
+    try {
+      const data = await fetchSupportRequests(
+        selectedCompany.id,
+        authenticatedRequest,
+        20,
+      );
+      setState((prev) =>
+        prev.kind === 'ready'
+          ? { ...prev, tickets: data.supportRequests, listLoading: false }
+          : {
+              kind: 'ready',
+              company: selectedCompany,
+              tickets: data.supportRequests,
+              listLoading: false,
+            },
+      );
+    } catch {
+      // Silent fail — existing data stays visible.
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [selectedCompany, authenticatedRequest]);
+
   useEffect(() => {
     load();
   }, [load]);
 
   return (
-    <AppScreen>
+    <AppScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>SUPPORT</Text>
         <Text style={styles.title}>Demander de l&apos;aide</Text>

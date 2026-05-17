@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -115,6 +116,7 @@ export default function ProjectsScreen() {
   const { authenticatedRequest } = useAuth();
   const { selectedCompany, isLoadingCompanies, companyError, refreshCompanies } = useCompany();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!selectedCompany) return;
@@ -129,12 +131,34 @@ export default function ProjectsScreen() {
     }
   }, [selectedCompany, authenticatedRequest]);
 
+  // Pull-to-refresh — fetches without resetting state to loading.
+  const onRefresh = useCallback(async () => {
+    if (!selectedCompany) return;
+    setIsRefreshing(true);
+    try {
+      const data = await fetchProjects(selectedCompany.id, authenticatedRequest);
+      setState({ kind: 'ready', company: selectedCompany, projects: data.projects });
+    } catch {
+      // Silent fail — existing data stays visible.
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [selectedCompany, authenticatedRequest]);
+
   useEffect(() => {
     load();
   }, [load]);
 
   return (
-    <AppScreen>
+    <AppScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>PROJETS</Text>
         <Text style={styles.title}>Vos projets</Text>
