@@ -13,10 +13,8 @@ import type {
   UserRow,
 } from './auth.types';
 
+// Startup validation in env.ts guarantees both values are present (>= 32 chars).
 function requireSecrets(): { access: string; refresh: string } {
-  if (!env.JWT_ACCESS_SECRET || !env.JWT_REFRESH_SECRET) {
-    throw new AppError(500, 'JWT secrets are required for authentication');
-  }
   return {
     access: env.JWT_ACCESS_SECRET,
     refresh: env.JWT_REFRESH_SECRET,
