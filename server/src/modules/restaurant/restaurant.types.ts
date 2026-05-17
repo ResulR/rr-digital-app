@@ -1,0 +1,53 @@
+// Mirrors the shapes returned by the Pasta House internal API.
+// No Stripe fields — they are stripped before reaching this layer.
+
+export type RestaurantOrderStatus =
+  | 'pending'
+  | 'awaiting_payment'
+  | 'paid'
+  | 'preparing'
+  | 'ready'
+  | 'in_delivery'
+  | 'completed'
+  | 'cancelled'
+  | 'payment_failed';
+
+export type RestaurantFulfillmentMethod = 'delivery' | 'pickup';
+
+export interface RestaurantOrderItem {
+  id: string;
+  lineNumber: number;
+  itemType: 'product' | 'beverage';
+  productNameSnapshot: string | null;
+  variantCodeSnapshot: string | null;
+  variantNameSnapshot: string | null;
+  beverageNameSnapshot: string | null;
+  unitPriceCents: number;
+  quantity: number;
+  lineTotalCents: number;
+}
+
+export interface RestaurantOrder {
+  id: string;
+  orderNumber: string;
+  status: RestaurantOrderStatus;
+  fulfillmentMethod: RestaurantFulfillmentMethod;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  totalCents: number;
+  currency: string;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RestaurantOrderDetail extends RestaurantOrder {
+  deliveryAddressLine1: string | null;
+  deliveryPostalCode: string | null;
+  deliveryCity: string | null;
+  customerNote: string | null;
+  subtotalCents: number;
+  deliveryFeeCents: number;
+  items: RestaurantOrderItem[];
+}

@@ -7,6 +7,7 @@ import { errorHandler } from './middlewares/errorHandler';
 import { authRateLimiter } from './middlewares/rateLimit';
 import authRoutes from './modules/auth/auth.routes';
 import companiesRoutes from './modules/companies/companies.routes';
+import restaurantOrdersRoutes from './modules/restaurant/restaurant.routes';
 import healthRoutes from './routes/health.routes';
 
 function buildCorsOptions(): CorsOptions | undefined {
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/api/auth/refresh', authRateLimiter);
   app.use('/api/auth', authRoutes);
   app.use('/api/companies', companiesRoutes);
+  app.use('/api/companies/:companyId/restaurant-orders', restaurantOrdersRoutes);
 
   app.use((_req, res) => {
     res.status(404).json({

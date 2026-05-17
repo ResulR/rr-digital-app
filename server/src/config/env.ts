@@ -17,6 +17,10 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+  // Pasta House integration (optional -- only needed when restaurant_orders module is active).
+  PASTA_HOUSE_INTERNAL_API_BASE_URL: z.string().url().optional(),
+  PASTA_HOUSE_INTERNAL_TOKEN: z.string().optional(),
+  PASTA_HOUSE_COMPANY_ID: z.string().uuid().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
