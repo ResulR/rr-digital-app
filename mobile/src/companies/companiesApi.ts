@@ -6,6 +6,7 @@
 import type {
   CreateSupportRequestInput,
   CreateSupportRequestResponse,
+  DashboardSummaryResponse,
   EventsResponse,
   ProjectsResponse,
   SupportRequestsResponse,
@@ -38,6 +39,17 @@ export async function fetchSupportRequests(
 ): Promise<SupportRequestsResponse> {
   return authenticatedRequest<SupportRequestsResponse>(
     `/companies/${companyId}/support-requests?limit=${limit}`,
+  );
+}
+
+// Aggregated home-screen summary — one call instead of three.
+// companyId comes from CompanyContext (never hardcoded).
+export async function fetchDashboardSummary(
+  companyId: string,
+  authenticatedRequest: AuthenticatedRequest,
+): Promise<DashboardSummaryResponse> {
+  return authenticatedRequest<DashboardSummaryResponse>(
+    `/companies/${companyId}/dashboard-summary`,
   );
 }
 

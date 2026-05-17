@@ -55,6 +55,48 @@ export interface SupportRequestsResponse {
   supportRequests: SupportRequest[];
 }
 
+// ── Dashboard summary ─────────────────────────────────────────────────────
+// Mirrors server PublicDashboardEvent (slim — no metadata, no companyId).
+
+export interface DashboardEvent {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  severity: string;
+  createdAt: string;
+}
+
+// Mirrors server PublicDashboardSupportRequest (slim — no message, no userId).
+export interface DashboardSupportRequest {
+  id: string;
+  title: string;
+  type: string;
+  priority: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface DashboardSummary {
+  company: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  counts: {
+    projects: number;
+    activeProjects: number;
+    openSupportRequests: number;
+    eventsLast7Days: number;
+  };
+  latestEvents: DashboardEvent[];
+  latestSupportRequests: DashboardSupportRequest[];
+}
+
+export interface DashboardSummaryResponse {
+  summary: DashboardSummary;
+}
+
 // Only the fields the mobile can supply — company_id, created_by_user_id,
 // status, and project_id are set server-side and must NOT be in this type.
 export interface CreateSupportRequestInput {
