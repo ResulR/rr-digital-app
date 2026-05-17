@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useCompany } from '../../src/companies/CompanyContext';
 import { AppScreen } from '../../src/components/AppScreen';
 import { colors } from '../../src/theme/colors';
@@ -14,6 +15,22 @@ import { radius, spacing } from '../../src/theme/spacing';
 import { typography } from '../../src/theme/typography';
 
 // --- Module helpers -------------------------------------------------------
+
+// Module keys that have a live screen in this app version.
+const AVAILABLE_MODULES = new Set(['restaurant_orders']);
+
+// Returns a navigation callback for modules that have a live screen,
+// or undefined for modules that are not yet implemented.
+function onPressForModule(key: string): (() => void) | undefined {
+  switch (key) {
+    case 'restaurant_orders':
+      // Typed routes: .expo/types/router.d.ts is auto-generated and does not
+      // yet include this route. Using `as never` to avoid touching the generated file.
+      return () => router.push('/restaurant-orders' as never);
+    default:
+      return undefined;
+  }
+}
 
 interface ModuleInfo {
   title: string;
@@ -67,19 +84,55 @@ function infoForModule(key: string): ModuleInfo {
 
 // --- Sub-components ------------------------------------------------------
 
-function ModuleCard({ moduleKey }: { moduleKey: string }) {
+function ModuleCard({
+  moduleKey,
+  onPress,
+}: {
+  moduleKey: string;
+  onPress?: () => void;
+}) {
   const info = infoForModule(moduleKey);
-  return (
-    <View style={styles.moduleCard}>
+  const isAvailable = AVAILABLE_MODULES.has(moduleKey);
+
+  const inner = (
+    <View style={[styles.moduleCard, isAvailable && styles.moduleCardAvailable]}>
       <View style={styles.moduleCardTop}>
         <Text style={styles.moduleCardTitle}>{info.title}</Text>
-        <View style={styles.moduleBadge}>
-          <Text style={styles.moduleBadgeText}>Bientot disponible</Text>
+        <View
+          style={[
+            styles.moduleBadge,
+            isAvailable ? styles.moduleBadgeAvailable : styles.moduleBadgeSoon,
+          ]}
+        >
+          <Text
+            style={[
+              styles.moduleBadgeText,
+              isAvailable && styles.moduleBadgeTextAvailable,
+            ]}
+          >
+            {isAvailable ? 'Disponible' : 'Bientot disponible'}
+          </Text>
         </View>
       </View>
       <Text style={styles.moduleCardDescription}>{info.description}</Text>
+      {isAvailable && (
+        <Text style={styles.moduleCardCta}>Ouvrir le module</Text>
+      )}
     </View>
   );
+
+  if (isAvailable && onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => (pressed ? styles.moduleCardTouchPressed : undefined)}
+      >
+        {inner}
+      </Pressable>
+    );
+  }
+
+  return inner;
 }
 
 // --- Screen --------------------------------------------------------------
@@ -172,7 +225,11 @@ export default function ManagementScreen() {
           ) : (
             <View style={styles.moduleList}>
               {modules.map((key) => (
-                <ModuleCard key={key} moduleKey={key} />
+                <ModuleCard
+                  key={key}
+                  moduleKey={key}
+                  onPress={onPressForModule(key)}
+                />
               ))}
             </View>
           )}
@@ -228,6 +285,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     gap: spacing.xs,
   },
+  moduleCardAvailable: {
+    borderColor: colors.primary,
+  },
+  moduleCardTouchPressed: {
+    opacity: 0.75,
+  },
   moduleCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -243,18 +306,34 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textSecondary,
   },
+  moduleCardCta: {
+    ...typography.small,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
   moduleBadge: {
-    backgroundColor: colors.surfaceSoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  moduleBadgeSoon: {
+    backgroundColor: colors.surfaceSoft,
     borderColor: colors.border,
+  },
+  moduleBadgeAvailable: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   moduleBadgeText: {
     ...typography.small,
     color: colors.textMuted,
     fontSize: 11,
+  },
+  moduleBadgeTextAvailable: {
+    color: colors.surface,
+    fontWeight: '600',
   },
   errorBox: {
     backgroundColor: '#FBEEEC',
