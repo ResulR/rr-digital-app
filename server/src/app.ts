@@ -10,6 +10,8 @@ import companiesRoutes from './modules/companies/companies.routes';
 import restaurantOrdersRoutes from './modules/restaurant/restaurant.routes';
 import restaurantScheduleRoutes from './modules/restaurant/restaurant-schedule.routes';
 import healthRoutes from './routes/health.routes';
+import deviceTokensRoutes from './routes/device-tokens.routes';
+import internalPastaHouseRoutes from './routes/internal.pasta-house.routes';
 
 function buildCorsOptions(): CorsOptions | undefined {
   // Wildcard => let cors() use its default (Access-Control-Allow-Origin: *).
@@ -45,6 +47,8 @@ export function createApp() {
   app.use('/api/companies', companiesRoutes);
   app.use('/api/companies/:companyId/restaurant-orders', restaurantOrdersRoutes);
   app.use('/api/companies/:companyId/restaurant-schedule', restaurantScheduleRoutes);
+  app.use('/api/users/me/device-token', deviceTokensRoutes);
+  app.use('/api/internal/pasta-house', internalPastaHouseRoutes);
 
   app.use((_req, res) => {
     res.status(404).json({

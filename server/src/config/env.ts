@@ -21,6 +21,9 @@ const envSchema = z.object({
   PASTA_HOUSE_INTERNAL_API_BASE_URL: z.string().url().optional(),
   PASTA_HOUSE_INTERNAL_TOKEN: z.string().optional(),
   PASTA_HOUSE_COMPANY_ID: z.string().uuid().optional(),
+  // Authenticates incoming server-to-server calls from Pasta House → RR Digital.
+  // Optional: server starts without it, but the internal route returns 503.
+  PASTA_HOUSE_INCOMING_TOKEN: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
