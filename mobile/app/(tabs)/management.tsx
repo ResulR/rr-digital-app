@@ -17,7 +17,7 @@ import { typography } from '../../src/theme/typography';
 // --- Module helpers -------------------------------------------------------
 
 // Module keys that have a live screen in this app version.
-const AVAILABLE_MODULES = new Set(['restaurant_orders']);
+const AVAILABLE_MODULES = new Set(['restaurant_orders', 'restaurant_schedule']);
 
 // Returns a navigation callback for modules that have a live screen,
 // or undefined for modules that are not yet implemented.
@@ -27,6 +27,8 @@ function onPressForModule(key: string): (() => void) | undefined {
       // Typed routes: .expo/types/router.d.ts is auto-generated and does not
       // yet include this route. Using `as never` to avoid touching the generated file.
       return () => router.push('/restaurant-orders' as never);
+    case 'restaurant_schedule':
+      return () => router.push('/restaurant-schedule' as never);
     default:
       return undefined;
   }

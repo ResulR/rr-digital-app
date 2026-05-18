@@ -68,3 +68,50 @@ export interface RestaurantOrdersResponse {
 export interface RestaurantOrderDetailResponse {
   order: RestaurantOrderDetail;
 }
+
+// --- Schedule types (Step 9C) ---
+
+export interface OpeningHour {
+  dayKey: string;
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+}
+
+export interface ExceptionalClosure {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+}
+
+export interface ScheduleOverride {
+  id: string;
+  serviceDate: string;
+  isClosed: boolean;
+  openTime: string | null;
+  closeTime: string | null;
+  note: string | null;
+}
+
+export interface StoreStatus {
+  ordersEnabled: boolean;
+  ordersDisabledReason: string | null;
+  deliveryEnabled: boolean;
+  pickupEnabled: boolean;
+  rushModeEnabled: boolean;
+}
+
+export interface StoreAvailability {
+  isOpen: boolean;
+  reason: string | null;
+  message: string | null;
+}
+
+export interface RestaurantScheduleData {
+  openingHours: OpeningHour[];
+  closures: ExceptionalClosure[];
+  overrides: ScheduleOverride[];
+  storeStatus: StoreStatus;
+  storeAvailability: StoreAvailability;
+}

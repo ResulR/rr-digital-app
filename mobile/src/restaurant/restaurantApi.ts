@@ -7,6 +7,7 @@
 import type {
   RestaurantOrderDetailResponse,
   RestaurantOrdersResponse,
+  RestaurantScheduleData,
   RestaurantWritableStatus,
 } from './restaurantTypes';
 
@@ -56,5 +57,14 @@ export async function updateRestaurantOrderStatus(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     },
+  );
+}
+
+export async function fetchRestaurantSchedule(
+  companyId: string,
+  authenticatedRequest: AuthenticatedRequest,
+): Promise<RestaurantScheduleData> {
+  return authenticatedRequest<RestaurantScheduleData>(
+    `/companies/${companyId}/restaurant-schedule`,
   );
 }
