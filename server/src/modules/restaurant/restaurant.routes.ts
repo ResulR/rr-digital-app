@@ -29,6 +29,13 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+// Only the 5 statuses an operator may set via RR Digital App.
+// Payment-related statuses (pending, awaiting_payment, paid, payment_failed)
+// are intentionally excluded — they are managed by the payment flow.
+const patchStatusSchema = z.object({
+  status: z.enum(['preparing', 'ready', 'in_delivery', 'completed', 'cancelled']),
+});
+
 // In V1 the company<->integration mapping is env-based.
 // PASTA_HOUSE_COMPANY_ID is the UUID of Pasta House in the RR Digital DB.
 function isIntegrationConfigured(companyId: string): boolean {
@@ -100,6 +107,43 @@ router.get(
       }
 
       const order = await connector.fetchOrderById(orderId);
+      res.json({ order });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PATCH /api/companies/:companyId/restaurant-orders/:orderId/status
+router.patch(
+  '/:orderId/status',
+  requireAuth,
+  requireCompanyAccess,
+  async (req, res, next) => {
+    try {
+      const params = z
+        .object({ companyId: z.string().uuid() })
+        .safeParse(req.params);
+      if (!params.success) throw new AppError(400, 'Invalid company ID');
+
+      const { companyId } = params.data;
+
+      const orderId = String(req.params.orderId ?? '').trim();
+      if (!orderId || !/^\d+$/.test(orderId)) {
+        throw new AppError(400, 'Invalid order ID');
+      }
+
+      const hasModule = await repo.hasActiveModule(companyId, MODULE_KEY);
+      if (!hasModule) throw new AppError(403, 'MODULE_NOT_ENABLED');
+
+      if (!isIntegrationConfigured(companyId)) {
+        throw new AppError(503, 'INTEGRATION_NOT_CONFIGURED');
+      }
+
+      const body = patchStatusSchema.safeParse(req.body);
+      if (!body.success) throw new AppError(400, 'Invalid status');
+
+      const order = await connector.updateOrderStatus(orderId, body.data.status);
       res.json({ order });
     } catch (err) {
       next(err);

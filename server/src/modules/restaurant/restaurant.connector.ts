@@ -60,6 +60,60 @@ async function get(path: string, config: ConnectorConfig): Promise<unknown> {
   }
 }
 
+async function patch(
+  path: string,
+  body: Record<string, unknown>,
+  config: ConnectorConfig,
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${config.baseUrl}${path}`, {
+      method: 'PATCH',
+      headers: {
+        'X-Internal-Token': config.token,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (response.status === 404) {
+      throw new AppError(404, 'Order not found');
+    }
+
+    if (response.status === 400) {
+      const json = (await response.json().catch(() => ({}))) as {
+        ok: boolean;
+        error?: string;
+      };
+      throw new AppError(400, json.error ?? 'INVALID_STATUS_TRANSITION');
+    }
+
+    if (!response.ok) {
+      throw new AppError(502, 'INTEGRATION_ERROR');
+    }
+
+    const json = (await response.json()) as { ok: boolean; data?: unknown };
+
+    if (!json.ok || !json.data) {
+      throw new AppError(502, 'INTEGRATION_INVALID_RESPONSE');
+    }
+
+    return json.data;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new AppError(504, 'INTEGRATION_TIMEOUT');
+    }
+    throw new AppError(502, 'INTEGRATION_UNAVAILABLE');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function fetchOrders(params: {
   date?: string;
   status?: string;
@@ -83,6 +137,19 @@ export async function fetchOrderById(orderId: string): Promise<RestaurantOrderDe
   const config = getConfig();
   const data = (await get(
     `/orders/${encodeURIComponent(orderId)}`,
+    config,
+  )) as { order: RestaurantOrderDetail };
+  return data.order;
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  status: string,
+): Promise<RestaurantOrderDetail> {
+  const config = getConfig();
+  const data = (await patch(
+    `/orders/${encodeURIComponent(orderId)}/status`,
+    { status },
     config,
   )) as { order: RestaurantOrderDetail };
   return data.order;
