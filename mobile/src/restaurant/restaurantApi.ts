@@ -7,6 +7,7 @@
 import type {
   RestaurantOrderDetailResponse,
   RestaurantOrdersResponse,
+  RestaurantWritableStatus,
 } from './restaurantTypes';
 
 // Type alias matching the authenticatedRequest signature in AuthContext.
@@ -39,5 +40,21 @@ export async function fetchRestaurantOrderDetail(
 ): Promise<RestaurantOrderDetailResponse> {
   return authenticatedRequest<RestaurantOrderDetailResponse>(
     `/companies/${companyId}/restaurant-orders/${encodeURIComponent(orderId)}`,
+  );
+}
+
+export async function updateRestaurantOrderStatus(
+  companyId: string,
+  orderId: string,
+  status: RestaurantWritableStatus,
+  authenticatedRequest: AuthenticatedRequest,
+): Promise<RestaurantOrderDetailResponse> {
+  return authenticatedRequest<RestaurantOrderDetailResponse>(
+    `/companies/${companyId}/restaurant-orders/${encodeURIComponent(orderId)}/status`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    },
   );
 }

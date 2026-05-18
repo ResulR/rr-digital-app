@@ -14,6 +14,15 @@ export type RestaurantOrderStatus =
 
 export type RestaurantFulfillmentMethod = 'delivery' | 'pickup';
 
+// The 5 statuses that an operator can set via RR Digital App.
+// Payment-related statuses are intentionally excluded.
+export type RestaurantWritableStatus =
+  | 'preparing'
+  | 'ready'
+  | 'in_delivery'
+  | 'completed'
+  | 'cancelled';
+
 export interface RestaurantOrderItem {
   id: string;
   lineNumber: number;

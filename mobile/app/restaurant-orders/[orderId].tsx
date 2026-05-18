@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   StyleSheet,
@@ -10,10 +11,11 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/auth/AuthContext';
 import { useCompany } from '../../src/companies/CompanyContext';
-import { fetchRestaurantOrderDetail } from '../../src/restaurant/restaurantApi';
+import { fetchRestaurantOrderDetail, updateRestaurantOrderStatus } from '../../src/restaurant/restaurantApi';
 import type {
   RestaurantOrderDetail,
   RestaurantOrderItem,
+  RestaurantWritableStatus,
 } from '../../src/restaurant/restaurantTypes';
 import { AppScreen } from '../../src/components/AppScreen';
 import { colors } from '../../src/theme/colors';
@@ -21,6 +23,14 @@ import { radius, spacing } from '../../src/theme/spacing';
 import { typography } from '../../src/theme/typography';
 
 const MODULE_KEY = 'restaurant_orders';
+
+const WRITABLE_STATUSES: { status: RestaurantWritableStatus; label: string }[] = [
+  { status: 'preparing', label: 'En preparation' },
+  { status: 'ready', label: 'Prete' },
+  { status: 'in_delivery', label: 'En livraison' },
+  { status: 'completed', label: 'Terminee' },
+  { status: 'cancelled', label: 'Annulee' },
+];
 
 // --- Helpers ---------------------------------------------------------------
 
@@ -215,6 +225,69 @@ function ItemRow({ item }: { item: RestaurantOrderItem }) {
   );
 }
 
+// --- Status actions --------------------------------------------------------
+
+function StatusActionsCard({
+  order,
+  isUpdating,
+  statusError,
+  onAction,
+}: {
+  order: RestaurantOrderDetail;
+  isUpdating: boolean;
+  statusError: string | null;
+  onAction: (status: RestaurantWritableStatus, label: string) => void;
+}) {
+  const available = WRITABLE_STATUSES.filter(({ status }) => {
+    if (status === order.status) return false;
+    if (status === 'in_delivery' && order.fulfillmentMethod === 'pickup') return false;
+    return true;
+  });
+
+  return (
+    <View style={styles.actionsCard}>
+      <Text style={styles.actionsCardTitle}>Actions statut</Text>
+      {isUpdating ? (
+        <View style={styles.actionsUpdating}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.actionsUpdatingText}>Mise a jour...</Text>
+        </View>
+      ) : null}
+      {!isUpdating && statusError ? (
+        <Text style={styles.actionsErrorText}>{statusError}</Text>
+      ) : null}
+      {!isUpdating && available.length === 0 ? (
+        <Text style={styles.actionsEmptyText}>Aucune action disponible.</Text>
+      ) : null}
+      {!isUpdating && available.length > 0 ? (
+        <View style={styles.actionButtons}>
+          {available.map(({ status, label }) => (
+            <Pressable
+              key={status}
+              style={({ pressed }) => [
+                styles.actionButton,
+                status === 'cancelled' && styles.actionButtonDanger,
+                pressed && styles.actionButtonPressed,
+              ]}
+              onPress={() => onAction(status, label)}
+              disabled={isUpdating}
+            >
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  status === 'cancelled' && styles.actionButtonTextDanger,
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 // --- Screen ----------------------------------------------------------------
 
 export default function RestaurantOrderDetailScreen() {
@@ -224,6 +297,8 @@ export default function RestaurantOrderDetailScreen() {
   const [order, setOrder] = useState<RestaurantOrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   const hasModule = selectedCompany?.modules.includes(MODULE_KEY) ?? false;
 
@@ -246,6 +321,46 @@ export default function RestaurantOrderDetailScreen() {
         setIsLoading(false);
       });
   }, [selectedCompany, hasModule, orderId, authenticatedRequest]);
+
+  const doUpdateStatus = useCallback(
+    async (status: RestaurantWritableStatus) => {
+      if (!selectedCompany || !orderId) return;
+      setIsUpdatingStatus(true);
+      setStatusError(null);
+      try {
+        const result = await updateRestaurantOrderStatus(
+          selectedCompany.id,
+          orderId,
+          status,
+          authenticatedRequest,
+        );
+        setOrder(result.order);
+      } catch {
+        setStatusError('Impossible de changer le statut.');
+      } finally {
+        setIsUpdatingStatus(false);
+      }
+    },
+    [selectedCompany, orderId, authenticatedRequest],
+  );
+
+  const handleStatusChange = useCallback(
+    (status: RestaurantWritableStatus, label: string) => {
+      Alert.alert(
+        'Confirmer le changement',
+        'Passer la commande en ' + label + ' ?',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Confirmer',
+            style: status === 'cancelled' ? 'destructive' : 'default',
+            onPress: () => { doUpdateStatus(status); },
+          },
+        ],
+      );
+    },
+    [doUpdateStatus],
+  );
 
   return (
     <AppScreen>
@@ -308,7 +423,15 @@ export default function RestaurantOrderDetailScreen() {
           {/* 1. Summary card - status / mode / total / date */}
           <SummaryCard order={order} />
 
-          {/* 2. Note client - highlighted if present */}
+          {/* 2. Actions statut */}
+          <StatusActionsCard
+            order={order}
+            isUpdating={isUpdatingStatus}
+            statusError={statusError}
+            onAction={handleStatusChange}
+          />
+
+          {/* 3. Note client - highlighted if present */}
           {order.customerNote ? (
             <NoteBox note={order.customerNote} />
           ) : null}
@@ -638,5 +761,62 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 15,
     fontWeight: '600',
+  },
+
+  // --- Actions statut ------------------------------------------------------
+  actionsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    gap: spacing.md,
+  },
+  actionsCardTitle: {
+    ...typography.sectionTitle,
+    color: colors.textPrimary,
+  },
+  actionsUpdating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  actionsUpdatingText: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  actionsErrorText: {
+    ...typography.small,
+    color: '#8A2A1B',
+  },
+  actionsEmptyText: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  actionButtons: {
+    gap: spacing.sm,
+  },
+  actionButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+  },
+  actionButtonDanger: {
+    borderColor: '#C0392B',
+  },
+  actionButtonPressed: {
+    backgroundColor: colors.surfaceSoft,
+  },
+  actionButtonText: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  actionButtonTextDanger: {
+    color: '#C0392B',
   },
 });
