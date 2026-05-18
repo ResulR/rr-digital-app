@@ -81,7 +81,7 @@ function AvailabilityCard({ availability }: { availability: StoreAvailability })
     <SectionCard title="Statut">
       <StatusRow
         label="Restaurant"
-        value={availability.isOpen ? 'Ouvert' : 'Ferme'}
+        value={availability.isOpen ? 'Ouvert' : 'Fermé'}
         valueColor={color}
       />
       {!availability.isOpen && availability.message ? (
@@ -107,7 +107,7 @@ function StoreStatusCard({
       <SectionCard title="Commandes">
         <StatusRow
           label="Commandes en ligne"
-          value={status.ordersEnabled ? 'Activees' : 'Desactivees'}
+          value={status.ordersEnabled ? 'Activées' : 'Désactivées'}
           valueColor={status.ordersEnabled ? COLOR_OPEN : COLOR_CLOSED}
         />
         {!status.ordersEnabled && status.ordersDisabledReason ? (
@@ -119,7 +119,7 @@ function StoreStatusCard({
         {isUpdating ? (
           <View style={styles.updatingRow}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.updatingText}>Mise a jour...</Text>
+            <Text style={styles.updatingText}>Mise à jour...</Text>
           </View>
         ) : (
           <Pressable
@@ -136,7 +136,7 @@ function StoreStatusCard({
                 status.ordersEnabled ? styles.toggleButtonTextDanger : null,
               ]}
             >
-              {status.ordersEnabled ? 'Desactiver les commandes' : 'Activer les commandes'}
+              {status.ordersEnabled ? 'Désactiver les commandes' : 'Activer les commandes'}
             </Text>
           </Pressable>
         )}
@@ -145,17 +145,17 @@ function StoreStatusCard({
       <SectionCard title="Services">
         <StatusRow
           label="Livraison"
-          value={status.deliveryEnabled ? 'Active' : 'Desactivee'}
+          value={status.deliveryEnabled ? 'Activée' : 'Désactivée'}
           valueColor={status.deliveryEnabled ? COLOR_OPEN : COLOR_MUTED}
         />
         <StatusRow
           label="Retrait"
-          value={status.pickupEnabled ? 'Actif' : 'Desactive'}
+          value={status.pickupEnabled ? 'Activé' : 'Désactivé'}
           valueColor={status.pickupEnabled ? COLOR_OPEN : COLOR_MUTED}
         />
         <StatusRow
           label="Mode rush"
-          value={status.rushModeEnabled ? 'Actif' : 'Desactive'}
+          value={status.rushModeEnabled ? 'Activé' : 'Désactivé'}
           valueColor={status.rushModeEnabled ? COLOR_WARN : COLOR_MUTED}
         />
       </SectionCard>
@@ -174,7 +174,7 @@ function OpeningHoursCard({ hours }: { hours: OpeningHour[] }) {
               {h.openTime} - {h.closeTime}
             </Text>
           ) : (
-            <Text style={[styles.hourTime, { color: COLOR_CLOSED }]}>Ferme</Text>
+            <Text style={[styles.hourTime, { color: COLOR_CLOSED }]}>Fermé</Text>
           )}
         </View>
       ))}
@@ -203,15 +203,15 @@ function ClosuresCard({ closures }: { closures: ExceptionalClosure[] }) {
 
 function OverridesCard({ overrides }: { overrides: ScheduleOverride[] }) {
   return (
-    <SectionCard title="Horaires speciaux">
+    <SectionCard title="Horaires spéciaux">
       {overrides.length === 0 ? (
-        <Text style={styles.emptyText}>Aucun horaire special.</Text>
+        <Text style={styles.emptyText}>Aucun horaire spécial.</Text>
       ) : (
         overrides.map((o) => (
           <View key={o.id} style={styles.overrideRow}>
             <Text style={styles.overrideDate}>{formatDate(o.serviceDate)}</Text>
             {o.isClosed ? (
-              <Text style={[styles.noteText, { color: COLOR_CLOSED }]}>Ferme</Text>
+              <Text style={[styles.noteText, { color: COLOR_CLOSED }]}>Fermé</Text>
             ) : (
               <Text style={styles.noteText}>
                 {o.openTime ?? '--'} - {o.closeTime ?? '--'}
@@ -252,11 +252,13 @@ export default function RestaurantScheduleScreen() {
         );
         setSchedule(data);
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Impossible de charger les horaires.',
-        );
+        if (!silent) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Impossible de charger les horaires.',
+          );
+        }
       } finally {
         setIsLoading(false);
       }
@@ -308,11 +310,11 @@ export default function RestaurantScheduleScreen() {
     const enabling = !schedule.storeStatus.ordersEnabled;
     Alert.alert(
       'Confirmer',
-      enabling ? 'Activer les commandes en ligne ?' : 'Desactiver les commandes en ligne ?',
+      enabling ? 'Activer les commandes en ligne ?' : 'Désactiver les commandes en ligne ?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
-          text: enabling ? 'Activer' : 'Desactiver',
+          text: enabling ? 'Activer' : 'Désactiver',
           style: enabling ? 'default' : 'destructive',
           onPress: () => doUpdateOrdersEnabled(enabling),
         },
@@ -453,7 +455,6 @@ const styles = StyleSheet.create({
   headerMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: spacing.xs,
   },
   companyLabel: {

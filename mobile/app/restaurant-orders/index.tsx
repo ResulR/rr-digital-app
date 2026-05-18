@@ -44,23 +44,23 @@ const FILTERS: FilterConfig[] = [
     key: 'today',
     label: "Aujourd'hui",
     params: { date: 'today', limit: 50 },
-    emptyText: "Aucune commande trouvee aujourd'hui.",
+    emptyText: "Aucune commande trouvée aujourd'hui.",
   },
   {
     key: 'recent',
-    label: 'Toutes recentes',
+    label: 'Toutes récentes',
     params: { limit: 50 },
     emptyText: 'Aucune commande pour ce filtre.',
   },
   {
     key: 'preparing',
-    label: 'En preparation',
+    label: 'En préparation',
     params: { status: 'preparing', limit: 50 },
     emptyText: 'Aucune commande pour ce filtre.',
   },
   {
     key: 'ready',
-    label: 'Pretes',
+    label: 'Prêtes',
     params: { status: 'ready', limit: 50 },
     emptyText: 'Aucune commande pour ce filtre.',
   },
@@ -72,13 +72,13 @@ const FILTERS: FilterConfig[] = [
   },
   {
     key: 'completed',
-    label: 'Terminees',
+    label: 'Terminées',
     params: { status: 'completed', limit: 50 },
     emptyText: 'Aucune commande pour ce filtre.',
   },
   {
     key: 'cancelled',
-    label: 'Annulees',
+    label: 'Annulées',
     params: { status: 'cancelled', limit: 50 },
     emptyText: 'Aucune commande pour ce filtre.',
   },
@@ -93,19 +93,19 @@ function labelForStatus(status: string): string {
     case 'awaiting_payment':
       return 'Paiement attendu';
     case 'paid':
-      return 'Payee';
+      return 'Payée';
     case 'preparing':
-      return 'Preparation';
+      return 'Préparation';
     case 'ready':
-      return 'Prete';
+      return 'Prête';
     case 'in_delivery':
       return 'En livraison';
     case 'completed':
-      return 'Terminee';
+      return 'Terminée';
     case 'cancelled':
-      return 'Annulee';
+      return 'Annulée';
     case 'payment_failed':
-      return 'Paiement echoue';
+      return 'Paiement échoué';
     default:
       return status;
   }
@@ -247,9 +247,11 @@ export default function RestaurantOrdersScreen() {
         );
         setOrders(result.orders);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Impossible de charger les commandes.',
-        );
+        if (!silent) {
+          setError(
+            err instanceof Error ? err.message : 'Impossible de charger les commandes.',
+          );
+        }
       } finally {
         setIsLoading(false);
       }
@@ -320,7 +322,7 @@ export default function RestaurantOrdersScreen() {
       {hasModule && !selectedCompany && (
         <View style={styles.section}>
           <View style={styles.infoBox}>
-            <Text style={styles.infoText}>Aucune entreprise selectionnee.</Text>
+            <Text style={styles.infoText}>Aucune entreprise sélectionnée.</Text>
           </View>
         </View>
       )}

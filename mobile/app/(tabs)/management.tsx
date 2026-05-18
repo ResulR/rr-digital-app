@@ -49,12 +49,12 @@ function infoForModule(key: string): ModuleInfo {
     case 'restaurant_orders':
       return {
         title: 'Commandes restaurant',
-        description: 'Consultez les commandes recues depuis votre site.',
+        description: 'Consultez les commandes reçues depuis votre site.',
       };
     case 'restaurant_schedule':
       return {
         title: 'Horaires restaurant',
-        description: 'Consultez et preparez la gestion des horaires.',
+        description: 'Consultez et préparez la gestion des horaires.',
       };
     case 'contact_requests':
       return {
@@ -112,7 +112,7 @@ function ModuleCard({
               isAvailable && styles.moduleBadgeTextAvailable,
             ]}
           >
-            {isAvailable ? 'Disponible' : 'Bientot disponible'}
+            {isAvailable ? 'Disponible' : 'Bientôt disponible'}
           </Text>
         </View>
       </View>

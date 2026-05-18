@@ -25,11 +25,11 @@ import { typography } from '../../src/theme/typography';
 const MODULE_KEY = 'restaurant_orders';
 
 const WRITABLE_STATUSES: { status: RestaurantWritableStatus; label: string }[] = [
-  { status: 'preparing', label: 'En preparation' },
-  { status: 'ready', label: 'Prete' },
+  { status: 'preparing', label: 'En préparation' },
+  { status: 'ready', label: 'Prête' },
   { status: 'in_delivery', label: 'En livraison' },
-  { status: 'completed', label: 'Terminee' },
-  { status: 'cancelled', label: 'Annulee' },
+  { status: 'completed', label: 'Terminée' },
+  { status: 'cancelled', label: 'Annulée' },
 ];
 
 // --- Helpers ---------------------------------------------------------------
@@ -41,19 +41,19 @@ function labelForStatus(status: string): string {
     case 'awaiting_payment':
       return 'Paiement attendu';
     case 'paid':
-      return 'Payee';
+      return 'Payée';
     case 'preparing':
-      return 'Preparation';
+      return 'Préparation';
     case 'ready':
-      return 'Prete';
+      return 'Prête';
     case 'in_delivery':
       return 'En livraison';
     case 'completed':
-      return 'Terminee';
+      return 'Terminée';
     case 'cancelled':
-      return 'Annulee';
+      return 'Annulée';
     case 'payment_failed':
-      return 'Paiement echoue';
+      return 'Paiement échoué';
     default:
       return status;
   }
@@ -140,7 +140,7 @@ function SummaryCard({ order }: { order: RestaurantOrderDetail }) {
       <Text style={styles.summaryDate}>{formatDate(order.createdAt)}</Text>
       {order.paidAt ? (
         <Text style={styles.summaryPaidAt}>
-          {'Paye le ' + formatDate(order.paidAt)}
+          {'Payé le ' + formatDate(order.paidAt)}
         </Text>
       ) : null}
     </View>
@@ -250,7 +250,7 @@ function StatusActionsCard({
       {isUpdating ? (
         <View style={styles.actionsUpdating}>
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={styles.actionsUpdatingText}>Mise a jour...</Text>
+          <Text style={styles.actionsUpdatingText}>Mise à jour...</Text>
         </View>
       ) : null}
       {!isUpdating && statusError ? (
