@@ -17,6 +17,7 @@ import type {
   RestaurantOrderItem,
   RestaurantWritableStatus,
 } from '../../src/restaurant/restaurantTypes';
+import { colorForStatus, formatCents, formatOrderDate, labelForFulfillment, labelForStatus } from '../../src/restaurant/restaurantHelpers';
 import { AppScreen } from '../../src/components/AppScreen';
 import { colors } from '../../src/theme/colors';
 import { radius, spacing } from '../../src/theme/spacing';
@@ -31,76 +32,6 @@ const WRITABLE_STATUSES: { status: RestaurantWritableStatus; label: string }[] =
   { status: 'completed', label: 'Terminée' },
   { status: 'cancelled', label: 'Annulée' },
 ];
-
-// --- Helpers ---------------------------------------------------------------
-
-function labelForStatus(status: string): string {
-  switch (status) {
-    case 'pending':
-      return 'En attente';
-    case 'awaiting_payment':
-      return 'Paiement attendu';
-    case 'paid':
-      return 'Payée';
-    case 'preparing':
-      return 'Préparation';
-    case 'ready':
-      return 'Prête';
-    case 'in_delivery':
-      return 'En livraison';
-    case 'completed':
-      return 'Terminée';
-    case 'cancelled':
-      return 'Annulée';
-    case 'payment_failed':
-      return 'Paiement échoué';
-    default:
-      return status;
-  }
-}
-
-function colorForStatus(status: string): string {
-  switch (status) {
-    case 'paid':
-    case 'completed':
-      return '#2D7A45';
-    case 'cancelled':
-    case 'payment_failed':
-      return '#C0392B';
-    case 'preparing':
-    case 'ready':
-      return colors.primary;
-    case 'in_delivery':
-      return '#2980B9';
-    default:
-      return colors.textMuted;
-  }
-}
-
-function labelForFulfillment(method: string): string {
-  switch (method) {
-    case 'delivery':
-      return 'Livraison';
-    case 'pickup':
-      return 'Retrait';
-    default:
-      return method;
-  }
-}
-
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2) + ' EUR';
-}
-
-function formatDate(dateStr: string): string {
-  return new Intl.DateTimeFormat('fr-BE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(dateStr));
-}
 
 function itemLabel(item: RestaurantOrderItem): string {
   if (item.itemType === 'beverage' && item.beverageNameSnapshot) {
@@ -137,10 +68,10 @@ function SummaryCard({ order }: { order: RestaurantOrderDetail }) {
         </View>
       </View>
       <Text style={styles.summaryTotal}>{formatCents(order.totalCents)}</Text>
-      <Text style={styles.summaryDate}>{formatDate(order.createdAt)}</Text>
+      <Text style={styles.summaryDate}>{formatOrderDate(order.createdAt)}</Text>
       {order.paidAt ? (
         <Text style={styles.summaryPaidAt}>
-          {'Payé le ' + formatDate(order.paidAt)}
+          {'Payé le ' + formatOrderDate(order.paidAt)}
         </Text>
       ) : null}
     </View>

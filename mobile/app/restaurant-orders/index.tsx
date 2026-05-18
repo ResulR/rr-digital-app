@@ -14,6 +14,7 @@ import { useCompany } from '../../src/companies/CompanyContext';
 import { fetchRestaurantOrders } from '../../src/restaurant/restaurantApi';
 import type { FetchOrdersParams } from '../../src/restaurant/restaurantApi';
 import type { RestaurantOrder } from '../../src/restaurant/restaurantTypes';
+import { colorForStatus, formatCents, formatOrderDate, labelForFulfillment, labelForStatus } from '../../src/restaurant/restaurantHelpers';
 import { AppScreen } from '../../src/components/AppScreen';
 import { colors } from '../../src/theme/colors';
 import { radius, spacing } from '../../src/theme/spacing';
@@ -84,76 +85,6 @@ const FILTERS: FilterConfig[] = [
   },
 ];
 
-// --- Helpers ---------------------------------------------------------------
-
-function labelForStatus(status: string): string {
-  switch (status) {
-    case 'pending':
-      return 'En attente';
-    case 'awaiting_payment':
-      return 'Paiement attendu';
-    case 'paid':
-      return 'Payée';
-    case 'preparing':
-      return 'Préparation';
-    case 'ready':
-      return 'Prête';
-    case 'in_delivery':
-      return 'En livraison';
-    case 'completed':
-      return 'Terminée';
-    case 'cancelled':
-      return 'Annulée';
-    case 'payment_failed':
-      return 'Paiement échoué';
-    default:
-      return status;
-  }
-}
-
-function colorForStatus(status: string): string {
-  switch (status) {
-    case 'paid':
-    case 'completed':
-      return '#2D7A45';
-    case 'cancelled':
-    case 'payment_failed':
-      return '#C0392B';
-    case 'preparing':
-    case 'ready':
-      return colors.primary;
-    case 'in_delivery':
-      return '#2980B9';
-    default:
-      return colors.textMuted;
-  }
-}
-
-function labelForFulfillment(method: string): string {
-  switch (method) {
-    case 'delivery':
-      return 'Livraison';
-    case 'pickup':
-      return 'Retrait';
-    default:
-      return method;
-  }
-}
-
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2) + ' EUR';
-}
-
-function formatDate(dateStr: string): string {
-  return new Intl.DateTimeFormat('fr-BE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(dateStr));
-}
-
 // --- Sub-components --------------------------------------------------------
 
 function FilterChip({
@@ -208,7 +139,7 @@ function OrderCard({ order }: { order: RestaurantOrder }) {
 
       <View style={styles.orderCardBottom}>
         <Text style={styles.orderTotal}>{formatCents(order.totalCents)}</Text>
-        <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
+        <Text style={styles.orderDate}>{formatOrderDate(order.createdAt)}</Text>
       </View>
     </Pressable>
   );

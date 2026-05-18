@@ -365,7 +365,7 @@ export default function RestaurantScheduleScreen() {
       {hasModule && !selectedCompany && (
         <View style={styles.section}>
           <View style={styles.infoBox}>
-            <Text style={styles.infoText}>Aucune entreprise selectionnee.</Text>
+            <Text style={styles.infoText}>Aucune entreprise sélectionnée.</Text>
           </View>
         </View>
       )}
@@ -396,7 +396,7 @@ export default function RestaurantScheduleScreen() {
                 ]}
                 onPress={() => loadSchedule()}
               >
-                <Text style={styles.retryLabel}>Reessayer</Text>
+                <Text style={styles.retryLabel}>Réessayer</Text>
               </Pressable>
             </View>
           )}
@@ -421,8 +421,6 @@ export default function RestaurantScheduleScreen() {
     </AppScreen>
   );
 }
-
-// --- Constants ---------------------------------------------------------------
 
 // --- Styles ------------------------------------------------------------------
 
