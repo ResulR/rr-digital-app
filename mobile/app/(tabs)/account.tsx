@@ -43,6 +43,19 @@ function labelForCompanyRole(role: string): string {
   }
 }
 
+function labelForCompanyStatus(status: string): string {
+  switch (status) {
+    case 'active':
+      return 'Actif';
+    case 'inactive':
+      return 'Inactif';
+    case 'suspended':
+      return 'Suspendu';
+    default:
+      return status;
+  }
+}
+
 function getInitials(fullName: string): string {
   return fullName
     .split(' ')
@@ -89,13 +102,13 @@ function CompanyCard({
         <Text style={styles.companyCardName}>{company.name}</Text>
         {isSelected && (
           <View style={styles.selectedBadge}>
-            <Text style={styles.selectedBadgeText}>Selectionnee</Text>
+            <Text style={styles.selectedBadgeText}>Sélectionnée</Text>
           </View>
         )}
       </View>
 
       <Text style={styles.companyCardDetail}>
-        Statut: {company.status}
+        Statut: {labelForCompanyStatus(company.status)}
       </Text>
       <Text style={styles.companyCardDetail}>
         Role: {labelForCompanyRole(company.role)}
@@ -222,7 +235,7 @@ export default function AccountScreen() {
                     </Text>
                   </View>
                   <View style={styles.connectedTag}>
-                    <Text style={styles.connectedTagText}>Connecte</Text>
+                    <Text style={styles.connectedTagText}>Connecté</Text>
                   </View>
                 </View>
               </View>
@@ -231,9 +244,9 @@ export default function AccountScreen() {
         </View>
       ) : null}
 
-      {/* Section 2 : Entreprise utilisee */}
+      {/* Section 2 : Entreprise utilisée */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Entreprise utilisee</Text>
+        <Text style={styles.sectionTitle}>Entreprise utilisée</Text>
 
         {isLoadingCompanies && (
           <AppCard>
@@ -255,7 +268,7 @@ export default function AccountScreen() {
               ]}
               onPress={refreshCompanies}
             >
-              <Text style={styles.outlineButtonLabel}>Reessayer</Text>
+              <Text style={styles.outlineButtonLabel}>Réessayer</Text>
             </Pressable>
           </>
         ) : null}
@@ -263,7 +276,7 @@ export default function AccountScreen() {
         {!isLoadingCompanies && !companyError && !selectedCompany ? (
           <AppCard>
             <Text style={styles.emptyText}>
-              Aucune entreprise associee a votre compte.
+              Aucune entreprise associée à votre compte.
             </Text>
           </AppCard>
         ) : null}
@@ -273,11 +286,11 @@ export default function AccountScreen() {
             <View style={styles.companyCardTop}>
               <Text style={styles.companyCardName}>{selectedCompany.name}</Text>
               <View style={styles.selectedBadge}>
-                <Text style={styles.selectedBadgeText}>Selectionnee</Text>
+                <Text style={styles.selectedBadgeText}>Sélectionnée</Text>
               </View>
             </View>
             <Text style={styles.companyCardDetail}>
-              Statut: {selectedCompany.status}
+              Statut: {labelForCompanyStatus(selectedCompany.status)}
             </Text>
             <Text style={styles.companyCardDetail}>
               Role: {labelForCompanyRole(selectedCompany.role)}
@@ -401,7 +414,7 @@ export default function AccountScreen() {
           {loggingOut ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.logoutLabel}>Se deconnecter</Text>
+            <Text style={styles.logoutLabel}>Se déconnecter</Text>
           )}
         </Pressable>
       </View>

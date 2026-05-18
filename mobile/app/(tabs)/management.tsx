@@ -195,7 +195,7 @@ export default function ManagementScreen() {
             ]}
             onPress={refreshCompanies}
           >
-            <Text style={styles.retryLabel}>Reessayer</Text>
+            <Text style={styles.retryLabel}>Réessayer</Text>
           </Pressable>
         </View>
       )}
@@ -204,7 +204,7 @@ export default function ManagementScreen() {
         <View style={styles.section}>
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
-              Aucune entreprise active associee a votre compte.
+              Aucune entreprise active associée à votre compte.
             </Text>
           </View>
         </View>

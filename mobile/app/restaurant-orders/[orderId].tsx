@@ -436,7 +436,7 @@ export default function RestaurantOrderDetailScreen() {
             <NoteBox note={order.customerNote} />
           ) : null}
 
-          {/* 3. Client - phone and email tappable */}
+          {/* 4. Client - phone and email tappable */}
           <SectionCard title="Client">
             {order.customerName ? (
               <DetailRow label="Nom" value={order.customerName} />
@@ -466,7 +466,7 @@ export default function RestaurantOrderDetailScreen() {
             ) : null}
           </SectionCard>
 
-          {/* 4. Articles */}
+          {/* 5. Articles */}
           {order.items.length > 0 && (
             <SectionCard title="Articles">
               {order.items.map((item) => (
@@ -475,7 +475,7 @@ export default function RestaurantOrderDetailScreen() {
             </SectionCard>
           )}
 
-          {/* 5. Total breakdown */}
+          {/* 6. Total breakdown */}
           <SectionCard title="Total">
             <DetailRow
               label="Sous-total"

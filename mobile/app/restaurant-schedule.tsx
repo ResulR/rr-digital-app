@@ -48,6 +48,11 @@ function formatDate(dateStr: string): string {
   }).format(new Date(dateStr));
 }
 
+const COLOR_OPEN = '#2D7A45';
+const COLOR_CLOSED = '#C0392B';
+const COLOR_MUTED = colors.textMuted;
+const COLOR_WARN = '#B7700A';
+
 // --- Sub-components ----------------------------------------------------------
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -340,7 +345,6 @@ export default function RestaurantScheduleScreen() {
           {selectedCompany ? (
             <Text style={styles.companyLabel}>{selectedCompany.name.toUpperCase()}</Text>
           ) : null}
-          <Text style={styles.readonlyLabel}>Lecture seule</Text>
         </View>
       </View>
 
@@ -418,11 +422,6 @@ export default function RestaurantScheduleScreen() {
 
 // --- Constants ---------------------------------------------------------------
 
-const COLOR_OPEN = '#2D7A45';
-const COLOR_CLOSED = '#C0392B';
-const COLOR_MUTED = colors.textMuted;
-const COLOR_WARN = '#B7700A';
-
 // --- Styles ------------------------------------------------------------------
 
 const styles = StyleSheet.create({
@@ -461,11 +460,6 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textMuted,
     letterSpacing: 1.2,
-  },
-  readonlyLabel: {
-    ...typography.small,
-    color: colors.textMuted,
-    fontStyle: 'italic',
   },
   content: {
     gap: spacing.md,
