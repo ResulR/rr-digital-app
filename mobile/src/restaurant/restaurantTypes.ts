@@ -115,3 +115,8 @@ export interface RestaurantScheduleData {
   storeStatus: StoreStatus;
   storeAvailability: StoreAvailability;
 }
+
+export interface RestaurantOrdersEnabledData {
+  storeStatus: StoreStatus;
+  storeAvailability: StoreAvailability;
+}

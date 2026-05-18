@@ -6,6 +6,7 @@
 
 import type {
   RestaurantOrderDetailResponse,
+  RestaurantOrdersEnabledData,
   RestaurantOrdersResponse,
   RestaurantScheduleData,
   RestaurantWritableStatus,
@@ -66,5 +67,21 @@ export async function fetchRestaurantSchedule(
 ): Promise<RestaurantScheduleData> {
   return authenticatedRequest<RestaurantScheduleData>(
     `/companies/${companyId}/restaurant-schedule`,
+  );
+}
+
+export async function updateRestaurantOrdersEnabled(
+  companyId: string,
+  ordersEnabled: boolean,
+  reason: string | null,
+  authenticatedRequest: AuthenticatedRequest,
+): Promise<RestaurantOrdersEnabledData> {
+  return authenticatedRequest<RestaurantOrdersEnabledData>(
+    `/companies/${companyId}/restaurant-schedule/orders-enabled`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ordersEnabled, reason }),
+    },
   );
 }

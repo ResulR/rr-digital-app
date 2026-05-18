@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -10,10 +11,11 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '../src/auth/AuthContext';
 import { useCompany } from '../src/companies/CompanyContext';
-import { fetchRestaurantSchedule } from '../src/restaurant/restaurantApi';
+import { fetchRestaurantSchedule, updateRestaurantOrdersEnabled } from '../src/restaurant/restaurantApi';
 import type {
   ExceptionalClosure,
   OpeningHour,
+  RestaurantOrdersEnabledData,
   RestaurantScheduleData,
   ScheduleOverride,
   StoreAvailability,
@@ -84,7 +86,17 @@ function AvailabilityCard({ availability }: { availability: StoreAvailability })
   );
 }
 
-function StoreStatusCard({ status }: { status: StoreStatus }) {
+function StoreStatusCard({
+  status,
+  onToggleOrdersEnabled,
+  isUpdating,
+  actionError,
+}: {
+  status: StoreStatus;
+  onToggleOrdersEnabled: () => void;
+  isUpdating: boolean;
+  actionError: string | null;
+}) {
   return (
     <>
       <SectionCard title="Commandes">
@@ -96,6 +108,33 @@ function StoreStatusCard({ status }: { status: StoreStatus }) {
         {!status.ordersEnabled && status.ordersDisabledReason ? (
           <Text style={styles.noteText}>{status.ordersDisabledReason}</Text>
         ) : null}
+        {actionError ? (
+          <Text style={styles.actionErrorText}>{actionError}</Text>
+        ) : null}
+        {isUpdating ? (
+          <View style={styles.updatingRow}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.updatingText}>Mise a jour...</Text>
+          </View>
+        ) : (
+          <Pressable
+            onPress={onToggleOrdersEnabled}
+            style={({ pressed }) => [
+              styles.toggleButton,
+              status.ordersEnabled ? styles.toggleButtonDanger : styles.toggleButtonPrimary,
+              pressed && styles.toggleButtonPressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.toggleButtonText,
+                status.ordersEnabled ? styles.toggleButtonTextDanger : null,
+              ]}
+            >
+              {status.ordersEnabled ? 'Desactiver les commandes' : 'Activer les commandes'}
+            </Text>
+          </Pressable>
+        )}
       </SectionCard>
 
       <SectionCard title="Services">
@@ -191,6 +230,8 @@ export default function RestaurantScheduleScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUpdatingOrdersEnabled, setIsUpdatingOrdersEnabled] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const hasModule = selectedCompany?.modules.includes(MODULE_KEY) ?? false;
 
@@ -230,6 +271,49 @@ export default function RestaurantScheduleScreen() {
       setIsRefreshing(false);
     }
   }, [loadSchedule]);
+
+  const doUpdateOrdersEnabled = useCallback(
+    async (ordersEnabled: boolean) => {
+      if (!selectedCompany) return;
+      setIsUpdatingOrdersEnabled(true);
+      setActionError(null);
+      try {
+        const result: RestaurantOrdersEnabledData = await updateRestaurantOrdersEnabled(
+          selectedCompany.id,
+          ordersEnabled,
+          ordersEnabled ? null : 'Pause temporaire',
+          authenticatedRequest,
+        );
+        setSchedule((prev: RestaurantScheduleData | null) =>
+          prev
+            ? { ...prev, storeStatus: result.storeStatus, storeAvailability: result.storeAvailability }
+            : prev,
+        );
+      } catch {
+        setActionError('Impossible de modifier les commandes.');
+      } finally {
+        setIsUpdatingOrdersEnabled(false);
+      }
+    },
+    [selectedCompany, authenticatedRequest],
+  );
+
+  const handleToggleOrdersEnabled = useCallback(() => {
+    if (!schedule) return;
+    const enabling = !schedule.storeStatus.ordersEnabled;
+    Alert.alert(
+      'Confirmer',
+      enabling ? 'Activer les commandes en ligne ?' : 'Desactiver les commandes en ligne ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: enabling ? 'Activer' : 'Desactiver',
+          style: enabling ? 'default' : 'destructive',
+          onPress: () => doUpdateOrdersEnabled(enabling),
+        },
+      ],
+    );
+  }, [schedule, doUpdateOrdersEnabled]);
 
   return (
     <AppScreen
@@ -315,7 +399,12 @@ export default function RestaurantScheduleScreen() {
           {!isLoading && !error && schedule && (
             <View style={styles.section}>
               <AvailabilityCard availability={schedule.storeAvailability} />
-              <StoreStatusCard status={schedule.storeStatus} />
+              <StoreStatusCard
+                status={schedule.storeStatus}
+                onToggleOrdersEnabled={handleToggleOrdersEnabled}
+                isUpdating={isUpdatingOrdersEnabled}
+                actionError={actionError}
+              />
               <OpeningHoursCard hours={schedule.openingHours} />
               <ClosuresCard closures={schedule.closures} />
               <OverridesCard overrides={schedule.overrides} />
@@ -453,6 +542,47 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     paddingVertical: spacing.sm,
+  },
+  toggleButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  toggleButtonPrimary: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  toggleButtonDanger: {
+    borderColor: '#C0392B',
+    backgroundColor: '#FBEEEC',
+  },
+  toggleButtonPressed: {
+    opacity: 0.75,
+  },
+  toggleButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.surface,
+  },
+  toggleButtonTextDanger: {
+    color: '#8A2A1B',
+  },
+  updatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  updatingText: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  actionErrorText: {
+    ...typography.small,
+    color: '#8A2A1B',
+    marginTop: spacing.xs,
   },
   infoBox: {
     backgroundColor: colors.surfaceSoft,
