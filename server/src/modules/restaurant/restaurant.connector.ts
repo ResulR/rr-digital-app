@@ -1,6 +1,6 @@
 import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
-import type { RestaurantOrder, RestaurantOrderDetail } from './restaurant.types';
+import type { RestaurantOrder, RestaurantOrderDetail, RestaurantScheduleData } from './restaurant.types';
 
 const TIMEOUT_MS = 8_000;
 
@@ -153,4 +153,13 @@ export async function updateOrderStatus(
     config,
   )) as { order: RestaurantOrderDetail };
   return data.order;
+}
+
+export async function fetchRestaurantSchedule(): Promise<RestaurantScheduleData> {
+  const config = getConfig();
+  // get() throws AppError(404, 'Order not found') for 404 responses — that
+  // message would be misleading here, but /schedule never returns 404 on a
+  // correctly configured Pasta House instance (Step 9A).
+  const data = (await get('/schedule', config)) as RestaurantScheduleData;
+  return data;
 }
